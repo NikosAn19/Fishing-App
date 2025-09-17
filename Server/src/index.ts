@@ -24,7 +24,7 @@ import forecastRoutes from "./routes/forecast";
 import uploadsRoutes from "./routes/uploads"; // ✅ NEW
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 // Connect to MongoDB
 connectDB();
@@ -42,6 +42,18 @@ app.use(
       "http://localhost:19001",
       "http://localhost:19002",
       "http://localhost:3000",
+      "http://192.168.2.5:19006",
+      "http://192.168.2.5:8081",
+      "http://192.168.2.5:19000",
+      "http://192.168.2.5:19001",
+      "http://192.168.2.5:19002",
+      "http://192.168.2.5:3000",
+      "http://10.120.42.28:19006",
+      "http://10.120.42.28:8081",
+      "http://10.120.42.28:19000",
+      "http://10.120.42.28:19001",
+      "http://10.120.42.28:19002",
+      "http://10.120.42.28:3000",
     ],
     credentials: true,
   })
@@ -117,9 +129,11 @@ app.get("/", (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🐟 Fishing App Server running on port ${PORT}`);
+// Start server - try binding to specific interface
+const HOST = process.env.HOST || "0.0.0.0";
+app.listen(PORT, HOST, () => {
+  console.log(`🐟 Fishing App Server running on 0.0.0.0:${PORT} (accessible via localhost and 10.0.2.2)`);
+  console.log(`🌊 Server also accessible via: http://10.120.42.28:${PORT} (mobile hotspot)`);
   console.log(`🌊 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(
     `🗃️  Database: ${
@@ -131,6 +145,11 @@ app.listen(PORT, () => {
     console.log("☁️  R2 endpoint:", process.env.R2_ENDPOINT);
     console.log("🪣 R2 bucket:", process.env.S3_BUCKET);
   }
+  
+  // Test connectivity
+  console.log(`🔍 Testing server connectivity...`);
+  console.log(`🔍 Local: curl http://localhost:${PORT}/health`);
+  console.log(`🔍 Network: curl http://192.168.2.5:${PORT}/health`);
 });
 
 export default app;

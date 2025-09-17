@@ -28,6 +28,17 @@ const config: Config = {
   uploadPath: process.env.UPLOAD_PATH || "./uploads",
   allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",") || [
     "http://localhost:19006",
+    "http://localhost:8081",
+    "http://localhost:19000",
+    "http://localhost:19001",
+    "http://localhost:19002",
+    "http://localhost:3000",
+    "http://192.168.2.5:19006",
+    "http://192.168.2.5:8081",
+    "http://192.168.2.5:19000",
+    "http://192.168.2.5:19001",
+    "http://192.168.2.5:19002",
+    "http://192.168.2.5:3000",
   ],
   rateLimitWindow: Number(process.env.RATE_LIMIT_WINDOW) || 15,
   rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
@@ -36,6 +47,10 @@ const config: Config = {
 };
 
 export default config;
+
+
+
+
 
 
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../theme/colors";
@@ -8,12 +8,14 @@ interface BottomMenuProps {
   onMapPress?: () => void;
   onFishPress?: () => void;
   onCatchesPress?: () => void;
+  currentScreen?: string;
 }
 
 export default function BottomMenu({
   onMapPress,
   onFishPress,
   onCatchesPress,
+  currentScreen,
 }: BottomMenuProps) {
   const insets = useSafeAreaInsets();
 
@@ -27,8 +29,21 @@ export default function BottomMenu({
           onPress={onMapPress}
           disabled={!onMapPress}
         >
-          <Ionicons name="map" size={24} color={colors.white} />
-          <Text style={styles.buttonText}>Map</Text>
+          <Ionicons
+            name="map"
+            size={24}
+            color={currentScreen === "/map" ? colors.accent : colors.white}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              {
+                color: currentScreen === "/map" ? colors.accent : colors.white,
+              },
+            ]}
+          >
+            Map
+          </Text>
         </TouchableOpacity>
 
         {/* Fish Button - Circular and protruding */}
@@ -46,8 +61,22 @@ export default function BottomMenu({
           onPress={onCatchesPress}
           disabled={!onCatchesPress}
         >
-          <Ionicons name="list" size={24} color={colors.white} />
-          <Text style={styles.buttonText}>Catches</Text>
+          <Ionicons
+            name="list"
+            size={24}
+            color={currentScreen === "/catches" ? colors.accent : colors.white}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              {
+                color:
+                  currentScreen === "/catches" ? colors.accent : colors.white,
+              },
+            ]}
+          >
+            Catches
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -106,5 +135,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 4,
+  },
+  logoImage: {
+    width: 50,
+    height: 35,
   },
 });

@@ -1,3 +1,14 @@
+import "dotenv/config";
+
+console.log(
+  "🔧 App Config - EXPO_PUBLIC_CDN_BASE:",
+  process.env.EXPO_PUBLIC_CDN_BASE
+);
+console.log(
+  "🔧 App Config - EXPO_PUBLIC_API_BASE:",
+  process.env.EXPO_PUBLIC_API_BASE
+);
+
 export default {
   expo: {
     name: "FishingApp",
@@ -7,6 +18,13 @@ export default {
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     newArchEnabled: true,
+    extra: {
+      EXPO_PUBLIC_API_BASE:
+        process.env.EXPO_PUBLIC_API_BASE || "http://localhost:3000",
+      EXPO_PUBLIC_CDN_BASE:
+        process.env.EXPO_PUBLIC_CDN_BASE ||
+        "https://pub-6152823702fd4064a507eac85c165f45.r2.dev",
+    },
     splash: {
       image: "./assets/splash-icon.png",
       resizeMode: "contain",

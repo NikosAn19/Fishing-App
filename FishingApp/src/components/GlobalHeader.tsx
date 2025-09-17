@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,15 +46,15 @@ export default function GlobalHeader({ onProfilePress }: GlobalHeaderProps) {
           <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
             <Ionicons name="menu" size={24} color={colors.white} />
           </TouchableOpacity>
-          {/* Logo/Title */}
+
+          {/* Logo */}
           <TouchableOpacity
             style={styles.logoContainer}
             onPress={handleLogoPress}
           >
-            <Text style={styles.logoText}>
-              <Text style={{ color: colors.accent }}>Psaraki</Text>
-            </Text>
+            <Text style={styles.logoText}>Psaraki</Text>
           </TouchableOpacity>
+
           {/* Profile Icon */}
           <TouchableOpacity
             style={styles.profileButton}
@@ -98,22 +99,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 22,
   },
-  logoContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.white,
-    textAlign: "center",
-  },
   profileButton: {
     width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 22,
+  },
+  logoContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.white,
+    letterSpacing: 1,
   },
 });

@@ -1,24 +1,49 @@
 // src/utils/s3.ts
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+  HeadBucketCommand,
+  ListBucketsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 
-const endpoint = process.env.R2_ENDPOINT!;
-const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
-const bucket = process.env.S3_BUCKET!;
+/** Env με μικρό sanitization */
+const rawEndpoint = process.env.R2_ENDPOINT || "";
+// Αφαίρεση του bucket name από το endpoint αν υπάρχει
+const endpoint = rawEndpoint
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/psarakibucket$/, ""); // χωρίς trailing "/" και bucket
+const accessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
+const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
+export const bucket = (process.env.S3_BUCKET || "").trim();
+const cdnBase = (process.env.CDN_BASE || "").trim(); // προαιρετικό
 
-if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
-  throw new Error("Missing R2 env vars (R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / S3_BUCKET)");
-}
-
-export const s3 = new S3Client({
-  region: "auto",               // R2 απαιτεί "auto"
-  endpoint,                     // π.χ. https://<account>.eu.r2.cloudflarestorage.com
-  credentials: { accessKeyId, secretAccessKey },
-  forcePathStyle: true,         // 🔴 ΚΡΙΣΙΜΟ για R2 (να είναι /bucket/key)
+console.log("🔧 S3 Config loaded:", {
+  endpoint: endpoint ? "✅ Set" : "❌ Missing",
+  bucket: bucket ? "✅ Set" : "❌ Missing",
+  cdnBase: cdnBase ? `✅ ${cdnBase}` : "❌ Missing",
+  accessKeyId: accessKeyId ? "✅ Set" : "❌ Missing",
 });
 
+if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+  throw new Error(
+    "Missing R2 env vars (R2_ENDPOINT / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / S3_BUCKET)"
+  );
+}
+
+/** S3 client για Cloudflare R2 */
+export const s3 = new S3Client({
+  region: "auto", // R2 απαιτεί "auto"
+  endpoint, // π.χ. https://<account>.eu.r2.cloudflarestorage.com
+  credentials: { accessKeyId, secretAccessKey },
+  forcePathStyle: true, // ΚΡΙΣΙΜΟ για R2 (URL μορφής /bucket/key)
+});
+
+/** Δημιουργεί key για αποθήκευση αρχείου */
 export function genFileKey(userId = "anon", ext = "jpg", variant = "original") {
   const now = new Date();
   const yyyy = now.getUTCFullYear();
@@ -27,16 +52,56 @@ export function genFileKey(userId = "anon", ext = "jpg", variant = "original") {
   return `${variant}/${userId}/${yyyy}/${mm}/${uuid}.${ext}`;
 }
 
-export async function getPresignedPutUrl(key: string, contentType: string, expiresIn = 300) {
+/** Presigned URL για PUT (upload) */
+export async function getPresignedPutUrl(
+  key: string,
+  contentType: string,
+  expiresIn = 300
+) {
   const cmd = new PutObjectCommand({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
   });
-  const url = await getSignedUrl(s3, cmd, { expiresIn });
+  return getSignedUrl(s3, cmd, { expiresIn });
+}
 
-  // Optional: μικρό debug να δεις το URL που φτιάχνεται
-  // console.log("[R2] presigned:", url);
+/** HeadObject: επιβεβαίωση ότι το object υπάρχει (μέγεθος, content-type κ.λπ.) */
+export async function headObject(key: string) {
+  return s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+}
 
+/** Προσωρινό presigned GET (αν ο κουβάς δεν είναι public) */
+export async function getPresignedGetUrl(key: string, expiresIn = 300) {
+  const cmd = new GetObjectCommand({ Bucket: bucket, Key: key });
+  return getSignedUrl(s3, cmd, { expiresIn });
+}
+
+/** Public URL για προβολή (CDN αν έχεις, αλλιώς dev path στο R2) */
+export function buildPublicUrl(key: string) {
+  console.log("🔗 buildPublicUrl debug:", { cdnBase, endpoint, bucket, key });
+
+  // Χρησιμοποίησε το CDN_BASE που δουλεύει
+  if (cdnBase) {
+    const url = `${cdnBase.replace(/\/+$/, "")}/${encodeURI(key)}`;
+    console.log("🔗 Using CDN_BASE URL:", url);
+    return url;
+  }
+  
+  // Fallback: Hardcoded CDN URL (αφού το CDN_BASE δεν είναι set)
+  const fallbackCdn = "https://pub-6152823702fd4064a507eac85c165f45.r2.dev";
+  const url = `${fallbackCdn}/${encodeURI(key)}`;
+  console.log("🔗 Using fallback CDN URL:", url);
   return url;
+
+  // ΣΧΟΛΙΟ: Το raw R2 URL δεν δουλεύει - δίνει 400 errors
+  // const url = `${endpoint}/${bucket}/${encodeURI(key)}`;
+}
+/** (Προαιρετικά) μικρά debug helpers για διαγνώσεις */
+export async function r2HeadBucket() {
+  return s3.send(new HeadBucketCommand({ Bucket: bucket }));
+}
+export async function r2ListBuckets() {
+  // R2 συχνά δεν επιστρέφει λίστα buckets με αυτό το API/token· είναι απλώς για debug.
+  return s3.send(new ListBucketsCommand({}));
 }
