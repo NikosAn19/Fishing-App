@@ -1,5 +1,5 @@
 // Export all types from their respective files
-export * from "./location";
+export * from "../features/location/types/location";
 export * from "./fishing";
 export * from "./weather";
 export * from "./ui";

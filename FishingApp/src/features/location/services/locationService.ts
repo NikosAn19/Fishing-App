@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { LocationInfo } from "../types";
+import { LocationInfo } from "../../../types";
 
 export class LocationService {
   // Request location permissions
@@ -43,8 +43,6 @@ export class LocationService {
         // Try high accuracy first with timeout
         location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
-          maximumAge: 60000, // Use cached location if less than 1 minute old
-          timeout: 10000, // 10 second timeout
         });
       } catch (highAccuracyError) {
         console.log(
@@ -54,8 +52,6 @@ export class LocationService {
         // Fallback to balanced accuracy
         location = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
-          maximumAge: 60000,
-          timeout: 15000, // 15 second timeout
         });
       }
 

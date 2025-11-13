@@ -1,26 +1,23 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Sun } from "lucide-react-native";
-import { colors } from "../../../theme/colors"; // ← adjust path
-import { BORDER, CARD_BG } from "../tokens";
+import { colors } from "../../../theme/colors";
 import { Recommendation } from "../types";
 
 type Props = { recommendations: Recommendation[] };
 
 export default function RecommendationsGrid({ recommendations }: Props) {
   return (
-    <>
-      <Text style={[styles.sectionTitle, { paddingHorizontal: 16 }]}>
-        Συστάσεις
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Συστάσεις</Text>
       <View style={styles.recsGrid}>
         {recommendations.map((r) => (
           <View key={r.title} style={styles.recCard}>
             <View style={styles.recHeader}>
-              <Sun size={18} color={colors.accent} />
+              <Sun size={18} color={colors.accent} strokeWidth={2.5} />
               <Text style={styles.recTitle}>{r.title}</Text>
             </View>
-            <View style={{ gap: 4, marginTop: 6 }}>
+            <View style={styles.recContent}>
               {r.lines.map((l, i) => (
                 <Text key={i} style={styles.recLine}>
                   {l}
@@ -30,28 +27,53 @@ export default function RecommendationsGrid({ recommendations }: Props) {
           </View>
         ))}
       </View>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { color: colors.white, fontSize: 16, fontWeight: "800" },
+  container: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
+  sectionTitle: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
   recsGrid: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     flexDirection: "row",
-    gap: 12,
+    gap: 8,
     flexWrap: "wrap",
   },
   recCard: {
-    flexBasis: "48%",
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: CARD_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    flex: 1,
+    minWidth: "48%",
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: colors.secondaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
   },
-  recHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  recTitle: { color: colors.white, fontSize: 14, fontWeight: "800" },
-  recLine: { color: "#D8DEE9", fontSize: 13 },
+  recHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  recTitle: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  recContent: {
+    gap: 4,
+  },
+  recLine: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
 });

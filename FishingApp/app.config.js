@@ -20,7 +20,7 @@ export default {
     newArchEnabled: true,
     extra: {
       EXPO_PUBLIC_API_BASE:
-        process.env.EXPO_PUBLIC_API_BASE || "http://localhost:3000",
+        process.env.EXPO_PUBLIC_API_BASE || "http://192.168.2.2:3000",
       EXPO_PUBLIC_CDN_BASE:
         process.env.EXPO_PUBLIC_CDN_BASE ||
         "https://pub-6152823702fd4064a507eac85c165f45.r2.dev",

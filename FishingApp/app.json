@@ -14,7 +14,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "deploymentTarget": "15.1"
+      "deploymentTarget": "15.1",
+      "bundleIdentifier": "com.psarakiapp"
     },
     "android": {
       "adaptiveIcon": {

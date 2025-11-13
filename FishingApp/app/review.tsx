@@ -16,45 +16,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../src/theme/colors";
 import { useCameraStore } from "../src/stores/cameraStore";
-import { uploadImageAndRegister } from "../src/services/uploads";
+import { useImageUpload } from "../src/features/uploads/hooks/useUpload";
+import { API_BASE } from "../src/config/api";
 
-/** Διαβάζουμε το base από env (Expo), αλλιώς πέφτουμε σε dev/prod defaults */
-const RAW_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ??
-  // @ts-ignore - Expo dev env shim
-  (globalThis as any).__expo?.env?.EXPO_PUBLIC_API_BASE ??
-  (__DEV__ ? "http://localhost:3000" : "https://your-prod-api");
-
-/** Κανονικοποίηση base URL + ειδική μεταχείριση για Android emulator */
-function normalizeBase(base: string) {
-  if (!base) return base;
-  let b = base.trim().replace(/\/+$/, ""); // κόψε trailing slashes
-
-  console.log("🌊 Review API base - Original:", base, "Platform:", Platform.OS);
-
-  // Για Android emulator, δοκίμασε διάφορες επιλογές
-  if (Platform.OS === "android") {
-    // Αντικατάστασε localhost/127.0.0.1 με το νέο IP του host
-    if (b.includes("localhost") || b.includes("127.0.0.1")) {
-      b = b
-        .replace("localhost", "10.120.42.28")
-        .replace("127.0.0.1", "10.120.42.28");
-      console.log("🌊 Review API - Android: localhost -> 10.120.42.28");
-    }
-    // Αντικατάστασε local network IPs με το νέο IP
-    else if (b.includes("192.168.") || b.includes("10.0.2.2")) {
-      b = b
-        .replace(/192\.168\.\d+\.\d+/, "10.120.42.28")
-        .replace("10.0.2.2", "10.120.42.28");
-      console.log("🌊 Review API - Android: network IP -> 10.120.42.28");
-    }
-  }
-
-  console.log("🌊 Review API - Final base:", b);
-  return b;
-}
-
-const API_BASE = normalizeBase(RAW_BASE);
+// API_BASE is now imported from centralized config
 
 export default function ReviewScreen() {
   const params = useLocalSearchParams();
@@ -64,6 +29,7 @@ export default function ReviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { startFishIdentification } = useCameraStore();
+  const { upload } = useImageUpload();
 
   const [fishType, setFishType] = useState(""); // local state name ok
   const [weight, setWeight] = useState("");
@@ -107,7 +73,7 @@ export default function ReviewScreen() {
 
       // 1) Upload → register asset
       console.log("📤 Uploading image to Cloudflare...");
-      const asset = await uploadImageAndRegister(photoUri);
+      const asset = await upload(photoUri);
       console.log("✅ Asset uploaded successfully:", asset);
 
       // 2) Save catch (👉 στέλνουμε canonical "species")

@@ -1,23 +1,50 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getForecast, UnifiedForecast } from "../api/client";
 
-export function useForecast(lat?: number, lon?: number, tz = "Europe/Athens") {
+type UseForecastOptions = {
+  tz?: string;
+  date?: string;
+  cache?: boolean;
+  skip?: boolean;
+};
+
+export function useForecast(
+  lat?: number,
+  lon?: number,
+  { tz = "Europe/Athens", date, cache, skip }: UseForecastOptions = {}
+) {
+  const shouldFetch = lat != null && lon != null && !skip;
   const [data, setData] = useState<UnifiedForecast | null>(null);
-  const [loading, setLoading] = useState<boolean>(!!(lat && lon));
+  const [loading, setLoading] = useState<boolean>(shouldFetch);
   const [error, setError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    if (lat == null || lon == null) return;
-    let cancel = false;
-    setLoading(true);
-    getForecast(lat, lon, tz)
-      .then((f) => !cancel && (setData(f), setError(null)))
-      .catch((e) => !cancel && setError(e as Error))
-      .finally(() => !cancel && setLoading(false));
-    return () => {
-      cancel = true;
-    };
-  }, [lat, lon, tz]);
+  const fetchForecast = useCallback(async () => {
+    if (!shouldFetch) {
+      setLoading(false);
+      if (skip) {
+        setData(null);
+        setError(null);
+      }
+      return;
+    }
 
-  return { data, loading, error };
+    setLoading(true);
+    try {
+      const result = await getForecast(lat!, lon!, tz, date, {
+        cache,
+      });
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [lat, lon, tz, date, cache, shouldFetch, skip]);
+
+  useEffect(() => {
+    fetchForecast();
+  }, [fetchForecast]);
+
+  return { data, loading, error, refetch: fetchForecast };
 }

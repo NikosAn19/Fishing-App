@@ -8,7 +8,9 @@ type OMHourly<T extends string> = {
 export async function fetchOpenMeteoWeather(
   lat: number,
   lon: number,
-  tz: string
+  tz: string,
+  startDate?: string,
+  endDate?: string
 ) {
   const params = new URLSearchParams({
     latitude: String(lat),
@@ -23,6 +25,14 @@ export async function fetchOpenMeteoWeather(
     current_weather: "true",
     timezone: tz,
   });
+
+  // Add date range if provided
+  if (startDate) {
+    params.append("start_date", startDate);
+  }
+  if (endDate) {
+    params.append("end_date", endDate);
+  }
   const res = await fetch(`${WEATHER_BASE}?${params}`);
   if (!res.ok) throw new Error(`OpenMeteo weather HTTP ${res.status}`);
   return res.json() as Promise<
@@ -39,7 +49,9 @@ export async function fetchOpenMeteoWeather(
 export async function fetchOpenMeteoMarine(
   lat: number,
   lon: number,
-  tz: string
+  tz: string,
+  startDate?: string,
+  endDate?: string
 ) {
   const params = new URLSearchParams({
     latitude: String(lat),
@@ -58,6 +70,14 @@ export async function fetchOpenMeteoMarine(
     ].join(","),
     timezone: tz,
   });
+
+  // Add date range if provided
+  if (startDate) {
+    params.append("start_date", startDate);
+  }
+  if (endDate) {
+    params.append("end_date", endDate);
+  }
   const res = await fetch(`${MARINE_BASE}?${params}`);
   if (!res.ok) throw new Error(`OpenMeteo marine HTTP ${res.status}`);
   return res.json() as Promise<

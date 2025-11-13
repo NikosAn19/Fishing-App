@@ -24,6 +24,24 @@ import forecastRoutes from "./routes/forecast";
 import uploadsRoutes from "./routes/uploads"; // ✅ NEW
 
 const app = express();
+
+// Configure trust proxy so rate limiting & logging can rely on X-Forwarded-* headers
+const trustProxySetting = process.env.TRUST_PROXY;
+if (trustProxySetting !== undefined) {
+  const normalizedTrustProxy =
+    trustProxySetting === "true"
+      ? true
+      : trustProxySetting === "false"
+      ? false
+      : Number.isNaN(Number(trustProxySetting))
+      ? trustProxySetting
+      : Number(trustProxySetting);
+
+  app.set("trust proxy", normalizedTrustProxy);
+} else {
+  // Default: trust first proxy (suitable for ngrok / reverse proxies during development)
+  app.set("trust proxy", 1);
+}
 const PORT = Number(process.env.PORT) || 3000;
 
 // Connect to MongoDB
@@ -33,15 +51,34 @@ connectDB();
 app.use(helmet());
 
 // CORS configuration
-app.use(
-  cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || [
+// Allow ngrok domains dynamically (for tunnel mode)
+const nodeEnv = process.env.NODE_ENV || "development";
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS;
+const allowAllOrigins = allowedOriginsEnv === "*";
+
+const allowedOrigins = allowAllOrigins
+  ? []
+  : allowedOriginsEnv
+  ? allowedOriginsEnv.split(",").map((o) => o.trim())
+  : [
       "http://localhost:19006",
       "http://localhost:8081",
       "http://localhost:19000",
       "http://localhost:19001",
       "http://localhost:19002",
       "http://localhost:3000",
+      "http://192.168.2.2:19006",
+      "http://192.168.2.2:8081",
+      "http://192.168.2.2:19000",
+      "http://192.168.2.2:19001",
+      "http://192.168.2.2:19002",
+      "http://192.168.2.2:3000",
+      "http://192.168.2.13:19006",
+      "http://192.168.2.13:8081",
+      "http://192.168.2.13:19000",
+      "http://192.168.2.13:19001",
+      "http://192.168.2.13:19002",
+      "http://192.168.2.13:3000",
       "http://192.168.2.5:19006",
       "http://192.168.2.5:8081",
       "http://192.168.2.5:19000",
@@ -54,7 +91,39 @@ app.use(
       "http://10.120.42.28:19001",
       "http://10.120.42.28:19002",
       "http://10.120.42.28:3000",
-    ],
+      "https://waney-beverly-interminable.ngrok-free.dev",
+    ];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (allowAllOrigins || nodeEnv === "development") {
+        return callback(null, true);
+      }
+
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      if (
+        origin.includes(".ngrok.io") ||
+        origin.includes(".ngrok-free.app") ||
+        origin.includes(".ngrok.app")
+      ) {
+        return callback(null, true);
+      }
+
+      if (origin.includes(".exp.direct")) {
+        return callback(null, true);
+      }
+
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
@@ -132,8 +201,12 @@ app.use(errorHandler);
 // Start server - try binding to specific interface
 const HOST = process.env.HOST || "0.0.0.0";
 app.listen(PORT, HOST, () => {
-  console.log(`🐟 Fishing App Server running on 0.0.0.0:${PORT} (accessible via localhost and 10.0.2.2)`);
-  console.log(`🌊 Server also accessible via: http://10.120.42.28:${PORT} (mobile hotspot)`);
+  console.log(
+    `🐟 Fishing App Server running on 0.0.0.0:${PORT} (accessible via localhost and 10.0.2.2)`
+  );
+  console.log(
+    `🌊 Server also accessible via: http://10.120.42.28:${PORT} (mobile hotspot)`
+  );
   console.log(`🌊 Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(
     `🗃️  Database: ${
@@ -145,15 +218,11 @@ app.listen(PORT, HOST, () => {
     console.log("☁️  R2 endpoint:", process.env.R2_ENDPOINT);
     console.log("🪣 R2 bucket:", process.env.S3_BUCKET);
   }
-  
+
   // Test connectivity
   console.log(`🔍 Testing server connectivity...`);
   console.log(`🔍 Local: curl http://localhost:${PORT}/health`);
-  console.log(`🔍 Network: curl http://192.168.2.5:${PORT}/health`);
+  console.log(`🔍 Network: curl http://192.168.2.2:${PORT}/health`);
 });
 
 export default app;
-
-
-
-

@@ -1,51 +1,59 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { MapPin } from "lucide-react-native";
-import { colors } from "../../../theme/colors"; // ← adjust path
+import { colors } from "../../../theme/colors";
+import { useReverseGeocode } from "../../location/hooks/useReverseGeocode";
 
 type Props = {
-  location: string;
+  lat?: number;
+  lon?: number;
   dateLabel: string;
-  onChangeSpot?: () => void;
 };
 
-export default function ForecastHeader({
-  location,
-  dateLabel,
-  onChangeSpot,
-}: Props) {
+export default function ForecastHeader({ lat, lon, dateLabel }: Props) {
+  const location = useReverseGeocode(lat, lon);
+
   return (
-    <View style={styles.headerRow}>
-      <View>
-        <Text style={styles.location}>{location}</Text>
+    <View style={styles.container}>
+      <View style={styles.headerCard}>
+        <View style={styles.locationRow}>
+          <MapPin size={18} color={colors.accent} strokeWidth={2.5} />
+          <Text style={styles.location}>{location}</Text>
+        </View>
         <Text style={styles.dateLabel}>{dateLabel}</Text>
       </View>
-      <TouchableOpacity style={styles.pillBtn} onPress={onChangeSpot}>
-        <MapPin size={16} color={colors.accent} />
-        <Text style={styles.pillBtnText}>Αλλαγή spot</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  container: {
+    marginHorizontal: 16,
+    marginVertical: 8,
   },
-  location: { color: colors.white, fontSize: 18, fontWeight: "700" },
-  dateLabel: { color: "#9BA3AF", fontSize: 13, marginTop: 2 },
-  pillBtn: {
-    flexDirection: "row",
+  headerCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.secondaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
     gap: 8,
-    backgroundColor: colors.accent,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    alignItems: "center",
   },
-  pillBtnText: { color: colors.primaryBg, fontWeight: "700", fontSize: 13 },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  location: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "700",
+    flex: 1,
+  },
+  dateLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 26,
+  },
 });

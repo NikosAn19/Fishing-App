@@ -1,5 +1,5 @@
 // Fishing-related types
-import { LocationInfo } from "./location";
+import { LocationInfo } from "../features/location/types/location";
 import { WeatherInfo } from "./weather";
 
 export interface FishingSpot {

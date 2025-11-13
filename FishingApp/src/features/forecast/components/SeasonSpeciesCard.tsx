@@ -1,8 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Calendar, Clock, TrendingUp, Moon, Fish } from "lucide-react-native";
-import { colors } from "../../../../src/theme/colors"; // ← adjust path
-import { BORDER, CARD_BG } from "../tokens";
+import { colors } from "../../../theme/colors";
 
 export type SeasonSpecies = {
   code: string; // π.χ. "aurata"
@@ -32,20 +31,20 @@ function likelihoodLabel(v: number) {
 function likelihoodTone(v: number) {
   if (v >= 0.75)
     return {
-      bg: "rgba(167,243,208,0.15)",
-      fg: "#A7F3D0",
-      br: "rgba(167,243,208,0.45)",
+      bg: colors.tertiaryBg,
+      fg: colors.accent,
+      br: colors.accent,
     };
   if (v >= 0.5)
     return {
-      bg: "rgba(238,216,141,0.15)",
-      fg: "#EED88D",
-      br: "rgba(238,216,141,0.45)",
+      bg: colors.tertiaryBg,
+      fg: colors.warning,
+      br: colors.warning,
     };
   return {
-    bg: "rgba(155,163,175,0.12)",
-    fg: "#B9C0CA",
-    br: "rgba(155,163,175,0.35)",
+    bg: colors.tertiaryBg,
+    fg: colors.textMuted,
+    br: colors.border,
   };
 }
 
@@ -61,16 +60,16 @@ export default function SeasonSpeciesCard({
   );
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.container}>
       <View style={styles.card}>
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Calendar size={18} color={colors.accent} />
+            <Calendar size={18} color={colors.accent} strokeWidth={2.5} />
             <Text style={styles.title}>Εποχικότητα & Είδη</Text>
           </View>
           <View style={styles.monthChip}>
-            <Clock size={14} color={colors.accent} />
+            <Clock size={14} color={colors.accent} strokeWidth={2.5} />
             <Text style={styles.monthText}>{monthLabel}</Text>
           </View>
         </View>
@@ -78,19 +77,19 @@ export default function SeasonSpeciesCard({
         {/* Season hint */}
         {seasonText ? (
           <View style={styles.seasonHint}>
-            <TrendingUp size={14} color={colors.accent} />
+            <TrendingUp size={14} color={colors.accent} strokeWidth={2.5} />
             <Text style={styles.seasonText}>Σεζόν: {seasonText}</Text>
           </View>
         ) : null}
 
         {/* Species list */}
-        <View style={{ gap: 10, marginTop: 8 }}>
+        <View style={styles.speciesList}>
           {sorted.map((sp) => {
             const tone = likelihoodTone(sp.likelihood);
             return (
               <TouchableOpacity
                 key={sp.code}
-                activeOpacity={0.85}
+                activeOpacity={0.7}
                 onPress={() => onPressSpecies?.(sp.code)}
                 style={styles.itemRow}
               >
@@ -104,7 +103,7 @@ export default function SeasonSpeciesCard({
                 <View style={styles.itemRight}>
                   {sp.monthsLabel ? (
                     <View style={styles.monthsBadge}>
-                      <Moon size={12} color={colors.accent} />
+                      <Moon size={12} color={colors.accent} strokeWidth={2.5} />
                       <Text style={styles.monthsText}>{sp.monthsLabel}</Text>
                     </View>
                   ) : null}
@@ -131,7 +130,7 @@ export default function SeasonSpeciesCard({
           {/* Empty state (αν δεν έχεις δεδομένα ακόμα) */}
           {sorted.length === 0 && (
             <View style={styles.emptyBox}>
-              <Fish size={18} color="#9BA3AF" />
+              <Fish size={18} color={colors.textMuted} strokeWidth={2.5} />
               <Text style={styles.emptyText}>
                 Δεν υπάρχουν προτάσεις εποχικότητας
               </Text>
@@ -144,21 +143,34 @@ export default function SeasonSpeciesCard({
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 16, marginTop: 8 },
+  container: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
   card: {
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: CARD_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.secondaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { color: colors.white, fontSize: 16, fontWeight: "800" },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  title: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
 
   monthChip: {
     flexDirection: "row",
@@ -166,35 +178,59 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    borderRadius: 12,
+    backgroundColor: colors.tertiaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  monthText: { color: colors.white, fontSize: 12, fontWeight: "700" },
+  monthText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: "600",
+  },
 
   seasonHint: {
-    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    backgroundColor: colors.tertiaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  seasonText: { color: colors.white, fontSize: 12, fontWeight: "600" },
+  seasonText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  speciesList: {
+    gap: 10,
+    marginTop: 4,
+  },
 
   itemRow: {
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  itemLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconDot: { width: 8, height: 8, borderRadius: 4 },
-  itemTitle: { color: colors.white, fontSize: 15, fontWeight: "800" },
+  itemLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  iconDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  itemTitle: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "700",
+  },
 
   itemRight: {
     marginTop: 8,
@@ -209,26 +245,42 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    borderRadius: 12,
+    backgroundColor: colors.tertiaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  monthsText: { color: colors.white, fontSize: 11, fontWeight: "600" },
+  monthsText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "600",
+  },
 
   likelihoodPill: {
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: 12,
   },
-  likelihoodText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.3 },
+  likelihoodText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
 
-  noteText: { color: "#B9C0CA", fontSize: 12, marginTop: 6 },
+  noteText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    marginTop: 6,
+    lineHeight: 16,
+  },
   emptyBox: {
     alignItems: "center",
     gap: 8,
     paddingVertical: 12,
   },
-  emptyText: { color: "#9BA3AF", fontSize: 13 },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
 });

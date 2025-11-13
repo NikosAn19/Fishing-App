@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { LocationService } from "../services/locationService";
-import { LocationInfo } from "../types";
+import { LocationInfo } from "../../../types";
 
 interface LocationState {
   currentLocation: LocationInfo | null;

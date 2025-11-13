@@ -1,20 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import {
-  Sparkles,
-  ThumbsUp,
-  AlertCircle,
-  Contrast,
-  ArrowUpDown,
-  Clock,
-  Sun,
-  Sunset,
-  Sunrise,
-} from "lucide-react-native";
-import { colors } from "../../../theme/colors"; // ← adjust path
-import { BORDER, CARD_BG } from "../tokens";
-import DonutGauge from "./DonutGauge";
+import { Sun, Contrast, Sunrise, Sunset } from "lucide-react-native";
+import { colors } from "../../../theme/colors";
 import { BestWindow, StatusInfo } from "../types";
+import ForecastScoreCard from "../../../components/ForecastScoreCard";
 
 type Props = {
   score: number;
@@ -23,7 +12,6 @@ type Props = {
   bestWindows: BestWindow[];
   moonLabel?: string;
   tideLabel?: string;
-  /** Φορμαρισμένη ώρα δύσης (π.χ. "19:52") */
   sunsetLabel?: string;
 };
 
@@ -37,116 +25,118 @@ export default function HeroCard({
   sunsetLabel = "—",
 }: Props) {
   return (
-    <View style={styles.heroCard}>
-      <View style={styles.heroLeft}>
-        <DonutGauge score={score} />
-        <View style={styles.statusWrap}>
-          <View
-            style={[
-              styles.statusChip,
-              status.tone === "great"
-                ? styles.statusGreat
-                : status.tone === "ok"
-                ? styles.statusOk
-                : styles.statusBad,
-            ]}
-          >
-            {status.tone === "great" ? (
-              <Sparkles size={14} color={colors.accent} />
-            ) : status.tone === "ok" ? (
-              <ThumbsUp size={14} color={colors.accent} />
-            ) : (
-              <AlertCircle size={14} color={colors.accent} />
-            )}
-            <Text style={styles.statusText}>{status.label}</Text>
+    <View style={styles.container}>
+      {/* Hero Score Card */}
+      <ForecastScoreCard
+        score={score}
+        style={styles.heroCard}
+        header={<Text style={styles.headerLabel}>Συνθήκες Ψαρέματος</Text>}
+      >
+        {/* Best Windows */}
+        <View style={styles.windowsContainer}>
+          <Text style={styles.windowsTitle}>Καλύτερες Ώρες</Text>
+          <View style={styles.windowsGrid}>
+            {bestWindows.slice(0, 2).map((w, idx) => (
+              <View key={idx} style={styles.windowChip}>
+                <Sun size={14} color={colors.white} strokeWidth={2.5} />
+                <Text style={styles.windowText}>{w.label}</Text>
+              </View>
+            ))}
           </View>
-          <Text style={styles.deltaText}>
-            {delta > 0 ? "↑" : "↓"} {Math.abs(delta)} vs χθες
-          </Text>
         </View>
-      </View>
+      </ForecastScoreCard>
 
-      <View style={styles.heroRight}>
-        <Text style={styles.sectionTitle}>Καλύτερες ώρες</Text>
-        <View style={{ gap: 8 }}>
-          {bestWindows.map((w) => (
-            <View key={w.label} style={styles.timeRow}>
-              <Sun size={16} color={colors.accent} />
-              <Text style={styles.timeText}>{w.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.metaRow}>
-          <View style={styles.metaChip}>
-            <Contrast size={14} color={colors.accent} />
-            <Text style={styles.metaText}>{moonLabel}</Text>
+      {/* Conditions Grid */}
+      <View style={styles.conditionsGrid}>
+        {[
+          { icon: Contrast, label: moonLabel },
+          { icon: Sunrise, label: tideLabel },
+          { icon: Sunset, label: `Δύση: ${sunsetLabel}` },
+        ].map((item, idx) => (
+          <View key={idx} style={styles.conditionCard}>
+            <item.icon size={18} color={colors.accent} strokeWidth={2.5} />
+            <Text style={styles.conditionLabel} numberOfLines={2}>
+              {item.label}
+            </Text>
           </View>
-          <View style={styles.metaChip}>
-            <Sunrise size={14} color={colors.accent} />
-            <Text style={styles.metaText}>{tideLabel}</Text>
-          </View>
-          {/* ΝΕΟ: ώρα δύσης (μέχρι πότε είναι μέρα) */}
-          <View style={styles.metaChip}>
-            <Sunset size={14} color={colors.accent} />
-            <Text style={styles.metaText}>Δύση ηλίου: {sunsetLabel}</Text>
-          </View>
-        </View>
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginHorizontal: 0,
+    marginVertical: 10,
+  },
+
   heroCard: {
-    marginHorizontal: 16,
+    marginHorizontal: 0,
+    marginTop: 0,
     marginBottom: 12,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: CARD_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
-    flexDirection: "row",
+  },
+
+  headerLabel: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    opacity: 0.85,
+  },
+
+  windowsContainer: {
     gap: 12,
   },
-  heroLeft: { alignItems: "center", justifyContent: "center" },
-  heroRight: { flex: 1, justifyContent: "space-between", paddingVertical: 6 },
 
-  statusWrap: { alignItems: "center", marginTop: 8 },
-  statusChip: {
+  windowsTitle: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+
+  windowsGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  windowChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
+    backgroundColor: colors.overlay10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  statusGreat: { backgroundColor: colors.accent },
-  statusOk: { backgroundColor: "#EED88D" },
-  statusBad: { backgroundColor: "#FF9F7A" },
-  statusText: {
-    color: colors.primaryBg,
-    fontWeight: "800",
-    fontSize: 12,
-    letterSpacing: 0.3,
+
+  windowText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: "600",
   },
-  deltaText: { color: "#9BA3AF", fontSize: 12, marginTop: 6 },
 
-  sectionTitle: { color: colors.white, fontSize: 16, fontWeight: "800" },
-  timeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  timeText: { color: colors.white, fontSize: 14, fontWeight: "700" },
-
-  metaRow: { flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 10 },
-  metaChip: {
+  conditionsGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    gap: 8,
+    marginHorizontal: 16,
   },
-  metaText: { color: colors.white, fontSize: 12, fontWeight: "600" },
+
+  conditionCard: {
+    flex: 1,
+    backgroundColor: colors.secondaryBg,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+
+  conditionLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "600",
+  },
 });

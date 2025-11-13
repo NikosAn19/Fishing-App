@@ -1,5 +1,13 @@
 import { UnifiedForecast } from "../api/client";
 import {
+  BEST_TIME_THRESHOLD,
+  computeForecastScore,
+  extractBestTimeSlots,
+  scaleClouds,
+  scaleGood,
+  scaleInverse,
+} from "../utils/forecastMetrics";
+import {
   BestWindow,
   Driver,
   ForecastAlert,
@@ -41,13 +49,20 @@ export function mapHeader(f: UnifiedForecast) {
 }
 
 export function mapHero(f: UnifiedForecast) {
-  const score = computeScore(f);
+  const score = computeForecastScore(f);
   const delta = 0;
 
-  const bestWindows: BestWindow[] = [
-    { label: "06:00–08:00", icon: "sunny-outline" },
-    { label: "18:30–19:45", icon: "moon-outline" },
-  ];
+  const slots = extractBestTimeSlots(f.hourly, BEST_TIME_THRESHOLD, 2);
+  const bestWindows: BestWindow[] =
+    slots.length > 0
+      ? slots.map((slot, idx) => ({
+          label: safeTimeLabel(slot.isoTime, f.meta?.tz),
+          icon: idx === 0 ? "sunny-outline" : "moon-outline",
+        }))
+      : [
+          { label: "06:00–08:00", icon: "sunny-outline" },
+          { label: "18:30–19:45", icon: "moon-outline" },
+        ];
 
   const moonLabel = `Φάση σελήνης: ${Math.round(
     (f.moon.fraction ?? 0) * 100
@@ -139,7 +154,7 @@ export function mapBreakdown(f: UnifiedForecast): {
   total: number;
   items: BreakdownItem[];
 } {
-  const total = computeScore(f);
+  const total = computeForecastScore(f);
   const items: BreakdownItem[] = [
     {
       key: "Άνεμος",
@@ -176,31 +191,4 @@ function verdict(
   if (val <= warn) return "good";
   if (val <= bad) return "ok";
   return "warn";
-}
-function scaleGood(val?: number | null, [best, mid, max] = [0, 12, 25]) {
-  if (val == null) return 0.5;
-  if (val <= best) return 1;
-  if (val >= max) return 0;
-  if (val <= mid) return 0.8;
-  return 0.5;
-}
-function scaleInverse(val?: number | null, [low, mid, high] = [0.2, 0.8, 1.4]) {
-  if (val == null) return 0.5;
-  if (val <= low) return 1;
-  if (val >= high) return 0;
-  if (val <= mid) return 0.7;
-  return 0.4;
-}
-function scaleClouds(val?: number | null) {
-  if (val == null) return 0.5;
-  const pct = val / 100;
-  const distFrom30 = Math.abs(pct - 0.3);
-  return Math.max(0, 1 - distFrom30 * 1.2);
-}
-export function computeScore(f: UnifiedForecast) {
-  const w = scaleGood(f.current.wind.speed_kn);
-  const waves = scaleInverse(f.current.wave.height_m);
-  const clouds = scaleClouds(f.current.air.cloud_pct);
-  const total = w * 0.25 + waves * 0.25 + clouds * 0.1 + 0.4 * 0.4;
-  return Math.round(total * 100);
 }

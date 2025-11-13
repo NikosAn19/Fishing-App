@@ -46,12 +46,14 @@ export type UnifiedForecast = {
 export async function buildUnifiedForecast(
   lat: number,
   lon: number,
-  tz: string
+  tz: string,
+  startDate?: string,
+  endDate?: string
 ): Promise<UnifiedForecast> {
   const [w, m, sun, moon, wind, sunOW] = await Promise.all([
-    fetchOpenMeteoWeather(lat, lon, tz),
-    fetchOpenMeteoMarine(lat, lon, tz),
-    fetchSunTimes(lat, lon),
+    fetchOpenMeteoWeather(lat, lon, tz, startDate, endDate),
+    fetchOpenMeteoMarine(lat, lon, tz, startDate, endDate),
+    fetchSunTimes(lat, lon, startDate),
     fetchMoonFromOneCall(lat, lon),
     fetchWindFromOneCall(lat, lon),
     fetchSunFromOneCall(lat, lon),

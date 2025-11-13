@@ -1,56 +1,15 @@
 // src/services/uploads.ts
 import * as FileSystem from "expo-file-system/legacy";
-import { Platform } from "react-native";
+import { API_BASE } from "../config/api";
 
-/** Διαβάζουμε το base από env (Expo), αλλιώς πέφτουμε σε dev/prod defaults */
-const RAW_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ??
-  // @ts-ignore - Expo dev env shim
-  (globalThis as any).__expo?.env?.EXPO_PUBLIC_API_BASE ??
-  (__DEV__ ? "http://localhost:3000" : "https://your-prod-api");
+// API_BASE is now imported from centralized config
 
-/** Κανονικοποίηση base URL + ειδική μεταχείριση για Android emulator */
-function normalizeBase(base: string) {
-  if (!base) return base;
-  let b = base.trim().replace(/\/+$/, ""); // κόψε trailing slashes
-
-  console.log("🌊 Original base:", base, "Platform:", Platform.OS);
-
-  // Για Android mobile hotspot, δοκίμασε διάφορες επιλογές
-  if (Platform.OS === "android") {
-    // Αντικατάστασε localhost/127.0.0.1 με το mobile hotspot IP
-    if (b.includes("localhost") || b.includes("127.0.0.1")) {
-      b = b
-        .replace("localhost", "10.120.42.28")
-        .replace("127.0.0.1", "10.120.42.28");
-      console.log("🌊 Android: localhost -> 10.120.42.28 (mobile hotspot IP)");
-    }
-    // Αντικατάστασε local network IPs με το mobile hotspot IP
-    else if (
-      b.includes("192.168.") ||
-      b.includes("10.0.2.2") ||
-      b.includes("10.120.42.28")
-    ) {
-      b = b
-        .replace(/192\.168\.\d+\.\d+/, "10.120.42.28")
-        .replace("10.0.2.2", "10.120.42.28")
-        .replace("10.120.42.28", "10.120.42.28");
-      console.log("🌊 Android: network IP -> 10.120.42.28 (mobile hotspot IP)");
-    }
-  }
-
-  console.log("🌊 Final base:", b);
-  return b;
-}
-
-const API_BASE = normalizeBase(RAW_BASE);
-
-type SignRes = {
+export type SignRes = {
   fileKey: string;
   uploadUrl: string;
   headers?: Record<string, string>;
 };
-type CompleteRes = {
+export type CompleteRes = {
   id: string;
   key: string;
   url: string;

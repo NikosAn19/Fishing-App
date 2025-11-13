@@ -1,53 +1,18 @@
 // src/features/forecast/api/client.ts
 import { Platform } from "react-native";
+import { API_BASE } from "../../../config/api";
 
-/** Διαβάζουμε το base από env (Expo), αλλιώς πέφτουμε σε dev/prod defaults */
-const RAW_BASE =
-  process.env.EXPO_PUBLIC_API_BASE ??
-  // @ts-ignore - Expo dev env shim
-  (globalThis as any).__expo?.env?.EXPO_PUBLIC_API_BASE ??
-  (__DEV__ ? "http://localhost:3000" : "https://your-prod-api");
-
-console.log("🔧 RAW_BASE from env:", RAW_BASE);
-console.log(
-  "🔧 process.env.EXPO_PUBLIC_API_BASE:",
-  process.env.EXPO_PUBLIC_API_BASE
-);
-console.log("🔧 __DEV__:", __DEV__);
-
-/** Κανονικοποίηση base URL + ειδική μεταχείριση για Android emulator */
-function normalizeBase(base: string) {
-  if (!base) return base;
-  let b = base.trim().replace(/\/+$/, ""); // κόψε trailing slashes
-
-  console.log("🌊 Original base:", base, "Platform:", Platform.OS);
-
-  // Για Android, δοκίμασε διάφορες επιλογές
-  if (Platform.OS === "android") {
-    // Αντικατάστασε localhost/127.0.0.1 με το mobile hotspot IP
-    if (b.includes("localhost") || b.includes("127.0.0.1")) {
-      b = b
-        .replace("localhost", "10.120.42.28")
-        .replace("127.0.0.1", "10.120.42.28");
-      console.log("🌊 Android: localhost -> 10.120.42.28 (mobile hotspot IP)");
-    }
-    // Αντικατάστασε local network IPs με το mobile hotspot IP
-    else if (b.includes("192.168.") || b.includes("10.120.42.28")) {
-      b = b
-        .replace(/192\.168\.\d+\.\d+/, "10.120.42.28")
-        .replace("10.120.42.28", "10.120.42.28");
-      console.log("🌊 Android: network IP -> 10.120.42.28 (mobile hotspot IP)");
-    }
-  }
-
-  console.log("🌊 Final normalized API_BASE:", b);
-  return b;
-}
-
-export const API_BASE = normalizeBase(RAW_BASE);
+// API_BASE is now imported from centralized config
 
 export type UnifiedForecast = {
-  meta: { lat: number; lon: number; tz: string; generatedAt: string };
+  meta: {
+    lat: number;
+    lon: number;
+    tz: string;
+    generatedAt: string;
+    requestedDate?: string;
+    dateRange?: { startDate: string; endDate: string };
+  };
   current: {
     air: {
       temp_c: number | null;
@@ -95,6 +60,7 @@ export async function getForecast(
   lat: number,
   lon: number,
   tz = "Europe/Athens",
+  date?: string,
   opts: GetForecastOpts = {}
 ) {
   const params = new URLSearchParams({
@@ -102,12 +68,22 @@ export async function getForecast(
     lon: String(lon),
     tz,
   });
+
+  // Use date endpoint if date is provided
+  const endpoint = date ? "/api/forecast/date" : "/api/forecast";
+  if (date) {
+    params.set("date", date);
+  }
+
   if (opts.cache === false) params.set("cache", "false");
 
-  const url = `${API_BASE}/api/forecast?${params.toString()}`;
+  const url = `${API_BASE}${endpoint}?${params.toString()}`;
   console.log("🌊 Fetching forecast from:", url);
   console.log("🌊 Platform:", Platform.OS);
   console.log("🌊 API_BASE:", API_BASE);
+  if (date) {
+    console.log("🌊 Date parameter:", date);
+  }
 
   const controller = opts.signal ? undefined : new AbortController();
   const signal = opts.signal ?? controller!.signal;
@@ -127,29 +103,7 @@ export async function getForecast(
       timeout: timeout + "ms",
     });
 
-    // Test basic connectivity first
-    console.log("🌊 Testing basic connectivity to", API_BASE);
     console.log("🌊 Full URL:", url);
-
-    // Try a simple health check first
-    try {
-      const healthUrl = `${API_BASE}/health`;
-      console.log("🌊 Testing health endpoint:", healthUrl);
-      const healthRes = await fetch(healthUrl, {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        mode: "cors",
-        cache: "no-cache",
-      });
-      console.log("🌊 Health check status:", healthRes.status);
-      if (healthRes.ok) {
-        const healthData = await healthRes.text();
-        console.log("🌊 Health check response:", healthData);
-      }
-    } catch (healthError) {
-      console.log("🌊 Health check failed:", healthError);
-    }
-
     const startTime = Date.now();
 
     // Add more detailed error handling

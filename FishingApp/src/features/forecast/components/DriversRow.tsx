@@ -8,8 +8,7 @@ import {
   Cloud,
   Gauge,
 } from "lucide-react-native";
-import { colors } from "../../../../src/theme/colors"; // adjust path
-import { BORDER, CARD_BG } from "../tokens";
+import { colors } from "../../../theme/colors";
 import { Driver } from "../types";
 import WindDriverCard from "./WindDriverCard";
 
@@ -37,18 +36,14 @@ const getIcon = (iconName: string, size: number, color: string) => {
 
 export default function DriversRow({ drivers }: Props) {
   return (
-    <>
-      <Text
-        style={[styles.sectionTitle, { paddingHorizontal: 16, marginTop: 8 }]}
-      >
-        Καιρικές συνθήκες
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Καιρικές συνθήκες</Text>
       <ScrollView
         horizontal
         contentContainerStyle={{
-          paddingHorizontal: 12,
+          paddingHorizontal: 0,
           paddingVertical: 6,
-          gap: 10,
+          gap: 8,
         }}
         showsHorizontalScrollIndicator={false}
       >
@@ -70,7 +65,7 @@ export default function DriversRow({ drivers }: Props) {
                 {getIcon(
                   d.icon,
                   18,
-                  d.verdict === "warn" ? "#FFD166" : colors.accent
+                  d.verdict === "warn" ? colors.warning : colors.accent
                 )}
                 <Text style={styles.driverTitle}>{d.title}</Text>
               </View>
@@ -79,30 +74,49 @@ export default function DriversRow({ drivers }: Props) {
           );
         })}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: { color: colors.white, fontSize: 16, fontWeight: "800" },
-  driverCard: {
-    width: 180,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: CARD_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+  container: {
+    marginHorizontal: 16,
+    marginVertical: 8,
   },
-  driverHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  driverTitle: { color: colors.white, fontSize: 13, fontWeight: "700" },
+  sectionTitle: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
+  driverCard: {
+    minWidth: 140,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: colors.secondaryBg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 8,
+  },
+  driverHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  driverTitle: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   driverValue: {
     color: colors.white,
-    fontSize: 16,
-    fontWeight: "800",
-    marginTop: 6,
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.5,
   },
   driverWarn: {
-    borderColor: "rgba(255,209,102,0.35)",
-    backgroundColor: "rgba(255,209,102,0.10)",
+    borderColor: colors.warning,
+    backgroundColor: colors.tertiaryBg,
   },
 });

@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Alert, Text, TouchableOpacity } from "react-native";
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocationStore } from "../stores/locationStore";
-import { MapViewProps, MapType } from "../types";
+import { useLocationStore } from "../features/location/stores/locationStore";
+import { MapViewProps, MapTypeEnum } from "../types";
 
 export default function FishingMapView({
   onMapPress,
   onMarkerPress,
 }: MapViewProps) {
-  const [mapType, setMapType] = useState<MapType>("standard");
+  const [mapType, setMapType] = useState<MapTypeEnum>(MapTypeEnum.STANDARD);
   const [mapReady, setMapReady] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [localLoading, setLocalLoading] = useState(false);
@@ -90,7 +90,11 @@ export default function FishingMapView({
   }, [isLoading, hasPermission, currentLocation, error]);
 
   const toggleMapType = () => {
-    const mapTypes: MapType[] = ["standard", "satellite", "hybrid"];
+    const mapTypes = [
+      MapTypeEnum.STANDARD,
+      MapTypeEnum.SATELLITE,
+      MapTypeEnum.HYBRID,
+    ];
     const currentIndex = mapTypes.indexOf(mapType);
     const nextIndex = (currentIndex + 1) % mapTypes.length;
     setMapType(mapTypes[nextIndex]);
@@ -148,7 +152,7 @@ export default function FishingMapView({
           showsUserLocation={false}
           showsMyLocationButton={false}
           showsCompass={true}
-          mapType="standard"
+          mapType={mapType}
           loadingEnabled={true}
           loadingIndicatorColor="#12dbc0"
           moveOnMarkerPress={false}
@@ -176,11 +180,10 @@ export default function FishingMapView({
           initialRegion={mapRegion}
           onPress={onMapPress}
           onMapReady={handleMapReady}
-          onError={handleMapError}
           showsUserLocation={false}
           showsMyLocationButton={false}
           showsCompass={true}
-          mapType="standard"
+          mapType={mapType}
           loadingEnabled={true}
           loadingIndicatorColor="#12dbc0"
           loadingBackgroundColor="#f5f5f5"
@@ -231,7 +234,7 @@ export default function FishingMapView({
         <View style={styles.errorOverlay}>
           <View style={styles.errorContainer}>
             <Ionicons
-              name="location-off-outline"
+              name="location-outline"
               size={48}
               color="#FF9F7A"
               style={{ marginBottom: 16 }}
@@ -251,9 +254,9 @@ export default function FishingMapView({
       <TouchableOpacity style={styles.mapTypeButton} onPress={toggleMapType}>
         <Ionicons
           name={
-            mapType === "satellite"
+            mapType === MapTypeEnum.SATELLITE
               ? "earth"
-              : mapType === "hybrid"
+              : mapType === MapTypeEnum.HYBRID
               ? "layers"
               : "map"
           }

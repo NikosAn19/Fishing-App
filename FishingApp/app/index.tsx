@@ -1,12 +1,13 @@
 // app/(drawer)/forecast/index.tsx
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
   Text,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../src/theme/colors";
@@ -16,22 +17,19 @@ import HeroCard from "../src/features/forecast/components/HeroCard";
 import DriversRow from "../src/features/forecast/components/DriversRow";
 import AlertBanner from "../src/features/forecast/components/AlertBanner";
 import RecommendationsGrid from "../src/features/forecast/components/BreakdownCard"; // ✅ correct import
-import SeasonSpeciesCard, {
-  SeasonSpecies,
-} from "../src/features/forecast/components/SeasonSpeciesCard";
+import ErrorState from "../src/components/ErrorState";
 
 import {
   getStatus,
-  BestWindow,
   Driver,
   Recommendation,
   BreakdownItem,
   ForecastAlert,
 } from "../src/features/forecast/types";
-import { computeScore } from "../src/features/forecast/mappers/toUi";
+import { computeForecastScore } from "../src/features/forecast/utils/forecastMetrics";
 
 // Hooks + mappers to backend
-import { useCurrentLocation } from "../src/features/forecast/hooks/useCurrentLocation";
+import { useCurrentLocation } from "../src/features/location/hooks/useCurrentLocation";
 import { useForecast } from "../src/features/forecast/hooks/useForecast";
 import {
   mapHeader,
@@ -40,117 +38,12 @@ import {
   mapAlert,
   mapRecommendations,
 } from "../src/features/forecast/mappers/toUi";
-import { useReverseGeocode } from "../src/features/forecast/hooks/useReverseGeocode"; // ✅ reverse geocode
-
-// --- Optional SAMPLE fallbacks (used only when no data yet)
-const SAMPLE = {
-  location: "Άλιμος, GR",
-  dateLabel: "Σάββατο, 7 Σεπ",
-  score: 76,
-  delta: +8,
-  bestWindows: [
-    { label: "06:10–08:00", icon: "sunny-outline" as const },
-    { label: "18:20–19:40", icon: "moon-outline" as const },
-  ] as BestWindow[],
-  drivers: [
-    {
-      icon: "leaf-outline",
-      title: "Άνεμος",
-      value: "ΒΑ 9–14 kn",
-      verdict: "good",
-      note: "Πλάγιος/ήπιος",
-    },
-    {
-      icon: "water-outline",
-      title: "Κύμα",
-      value: "0.6 m @ 7 s",
-      verdict: "warn",
-      note: "Οριακό για βράχια",
-    },
-    {
-      icon: "thermometer-outline",
-      title: "Θερμ. νερού",
-      value: "22.4°C",
-      verdict: "good",
-      note: "Σταθερή",
-    },
-    {
-      icon: "cloud-outline",
-      title: "Νεφοκάλυψη",
-      value: "30%",
-      verdict: "good",
-      note: "Μαλακό φως",
-    },
-    {
-      icon: "compass-outline",
-      title: "Κατεύθυνση",
-      value: "Side/Off",
-      verdict: "good",
-      note: "Καλή πλεύση",
-    },
-    {
-      icon: "trending-up-outline",
-      title: "Πίεση",
-      value: "+2.1 hPa/6h",
-      verdict: "ok",
-      note: "Ελαφρά άνοδος",
-    },
-  ] as Driver[],
-  alert: {
-    level: "amber",
-    text: "Ριπές 22 kn 15:00–17:00 — απόφυγε εκτεθειμένα βράχια.",
-  } as ForecastAlert,
-  recommendations: [
-    {
-      icon: "fish-outline",
-      title: "Τεχνική",
-      lines: ["Spinning", "Minnow 90–120mm", "Slow retrieve + twitches"],
-    },
-    {
-      icon: "flame-outline",
-      title: "Δόλωμα",
-      lines: ["Γαρίδα / καραβιδάκι", "Αγκίστρι 1/0–2/0", "Fluoro 0.26–0.30"],
-    },
-    {
-      icon: "map-outline",
-      title: "Spot",
-      lines: ["Αμμώδες με βραχάκια", "Στόμια λιμανιού", "Ροή παλίρροιας"],
-    },
-  ] as Recommendation[],
-  breakdown: [
-    { key: "Άνεμος", weight: 0.25, score: 0.85, color: "#00e6b8" },
-    { key: "Κύμα", weight: 0.25, score: 0.55, color: "#39c6ff" },
-    { key: "Παλίρροια", weight: 0.15, score: 0.7, color: "#8b78ff" },
-    { key: "Θερμ. νερού", weight: 0.1, score: 0.8, color: "#7fdc9b" },
-    { key: "Φως/Νέφη", weight: 0.1, score: 0.75, color: "#ffd166" },
-    { key: "Πίεση", weight: 0.1, score: 0.6, color: "#ff9f7a" },
-    { key: "Σελήνη", weight: 0.05, score: 0.5, color: "#bfbfbf" },
-  ] as BreakdownItem[],
-  species: [
-    {
-      code: "aurata",
-      name: "Τσιπούρα",
-      likelihood: 0.9,
-      monthsLabel: "Σεπ–Νοε",
-      note: "Δουλεύει με ελαφρύ κυματισμό.",
-    },
-    {
-      code: "labrax",
-      name: "Λαβράκι",
-      likelihood: 0.7,
-      monthsLabel: "Οκτ–Δεκ",
-    },
-    {
-      code: "mullus",
-      name: "Μπαρμπούνι",
-      likelihood: 0.55,
-      monthsLabel: "Μάι–Οκτ",
-    },
-  ] as SeasonSpecies[],
-};
+import AdventureScheduleModal from "../src/adventure-schedule/AdventureScheduleModal";
+import { Compass } from "lucide-react-native";
 
 export default function ForecastScreen() {
   const insets = useSafeAreaInsets();
+  const [showAdventureWizard, setShowAdventureWizard] = useState(false);
 
   // 1) Τρέχουσα τοποθεσία συσκευής
   const { coords, loading: locating, error: locErr } = useCurrentLocation();
@@ -160,7 +53,7 @@ export default function ForecastScreen() {
     data,
     loading: loadingForecast,
     error: apiErr,
-  } = useForecast(coords?.lat, coords?.lon, "Europe/Athens");
+  } = useForecast(coords?.lat, coords?.lon, { tz: "Europe/Athens" });
 
   // 📊 Debug: Display all server data when received
   React.useEffect(() => {
@@ -238,37 +131,18 @@ export default function ForecastScreen() {
         data.hourly.cloud_pct.slice(-2)
       );
 
-      console.log("🎣 Fishing Score:", computeScore(data));
+      console.log("🎣 Fishing Score:", computeForecastScore(data));
       console.log("🌊 ===== END SERVER DATA =====");
     }
   }, [data]);
 
-  // 3) Reverse geocoding σε "Πόλη, CC"
-  const niceLocation = useReverseGeocode(
-    data?.meta.lat ?? coords?.lat,
-    data?.meta.lon ?? coords?.lon
-  );
-
-  // 4) Map σε UI props (fallback σε SAMPLE)
-  const header = data
-    ? mapHeader(data)
-    : { location: SAMPLE.location, dateLabel: SAMPLE.dateLabel };
-
-  const hero = data
-    ? mapHero(data)
-    : {
-        score: SAMPLE.score,
-        delta: SAMPLE.delta,
-        bestWindows: SAMPLE.bestWindows,
-        moonLabel: "—",
-        tideLabel: "—",
-        sunsetLabel: "—", // ✅ fallback για δύση
-      };
-
-  const status = useMemo(() => getStatus(hero.score), [hero.score]);
-  const drivers = data ? mapDrivers(data) : SAMPLE.drivers;
-  const alert = data ? mapAlert(data) : SAMPLE.alert;
-  const recs = data ? mapRecommendations(data) : SAMPLE.recommendations;
+  // 3) Map σε UI props
+  const header = data ? mapHeader(data) : null;
+  const hero = data ? mapHero(data) : null;
+  const status = useMemo(() => (hero ? getStatus(hero.score) : null), [hero]);
+  const drivers = data ? mapDrivers(data) : [];
+  const alert = data ? mapAlert(data) : null;
+  const recs = data ? mapRecommendations(data) : [];
 
   const loading = locating || loadingForecast;
 
@@ -282,15 +156,43 @@ export default function ForecastScreen() {
         >
           {/* Header — δείχνουμε την "ωραία" τοποθεσία από reverse geocode */}
           <ForecastHeader
-            location={data || coords ? niceLocation || "—" : SAMPLE.location}
-            dateLabel={header.dateLabel}
+            lat={data?.meta.lat ?? coords?.lat}
+            lon={data?.meta.lon ?? coords?.lon}
+            dateLabel={header?.dateLabel ?? "—"}
           />
+
+          {/* Start Adventure Button - only show when data is available */}
+          {data && (
+            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+              <TouchableOpacity
+                onPress={() => setShowAdventureWizard(true)}
+                style={[
+                  styles.adventureButton,
+                  { backgroundColor: colors.accent },
+                ]}
+              >
+                <Compass size={20} color={colors.white} />
+                <Text style={styles.adventureButtonText}>Start Adventure</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Loading */}
           {loading && (
-            <View style={{ padding: 24, alignItems: "center" }}>
+            <View
+              style={{
+                padding: 20,
+                alignItems: "center",
+                marginHorizontal: 16,
+                marginVertical: 8,
+                borderRadius: 16,
+                backgroundColor: colors.secondaryBg,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
               <ActivityIndicator color={colors.accent} />
-              <Text style={{ color: "#9BA3AF", marginTop: 8 }}>
+              <Text style={{ color: colors.textSecondary, marginTop: 8 }}>
                 Φόρτωση πρόγνωσης…
               </Text>
             </View>
@@ -298,30 +200,29 @@ export default function ForecastScreen() {
 
           {/* Errors as banners */}
           {locErr && (
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-              <AlertBanner
-                alert={{
-                  level: "amber",
-                  text: "Δεν δόθηκε άδεια τοποθεσίας. Ενεργοποίησε τα Location Services.",
-                }}
-              />
-            </View>
+            <AlertBanner
+              alert={{
+                level: "amber",
+                text: "Δεν δόθηκε άδεια τοποθεσίας. Ενεργοποίησε τα Location Services.",
+              }}
+            />
           )}
           {apiErr && (
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-              <AlertBanner
-                alert={{
-                  level: "red",
-                  text: "Σφάλμα ανάκτησης πρόγνωσης. Έλεγξε το API_BASE ή το δίκτυο.",
-                }}
-              />
-            </View>
+            <AlertBanner
+              alert={{
+                level: "red",
+                text: "Σφάλμα ανάκτησης πρόγνωσης. Έλεγξε το API_BASE ή το δίκτυο.",
+              }}
+            />
           )}
 
           {/* Content */}
-          {!loading && (
+          {!loading && !data && <ErrorState />}
+
+          {/* Content when data is available */}
+          {!loading && data && (
             <>
-              <View style={{ marginBottom: 8 }}>
+              {hero && status && (
                 <HeroCard
                   score={hero.score}
                   delta={hero.delta}
@@ -329,38 +230,27 @@ export default function ForecastScreen() {
                   bestWindows={hero.bestWindows}
                   moonLabel={hero.moonLabel}
                   tideLabel={hero.tideLabel}
-                  sunsetLabel={hero.sunsetLabel} // ✅ περνάμε τη δύση
+                  sunsetLabel={hero.sunsetLabel}
                 />
-              </View>
-
-              <View style={{ marginBottom: 8 }}>
-                <DriversRow drivers={drivers} />
-              </View>
-
-              {/* Season/Species (UX-only μέχρι να φτιάξουμε /api/season) */}
-              <View style={{ marginBottom: 8 }}>
-                <SeasonSpeciesCard
-                  monthLabel={new Date().toLocaleDateString("el-GR", {
-                    month: "long",
-                  })}
-                  seasonText="Σεπ – Νοε"
-                  species={SAMPLE.species}
-                />
-              </View>
-
-              {alert && (
-                <View style={{ marginBottom: 8 }}>
-                  <AlertBanner alert={alert} />
-                </View>
               )}
 
-              <View style={{ marginBottom: 8 }}>
+              {drivers.length > 0 && <DriversRow drivers={drivers} />}
+
+              {alert && <AlertBanner alert={alert} />}
+
+              {recs.length > 0 && (
                 <RecommendationsGrid recommendations={recs} />
-              </View>
+              )}
             </>
           )}
         </ScrollView>
       </View>
+
+      {/* Adventure Schedule Wizard Modal */}
+      <AdventureScheduleModal
+        visible={showAdventureWizard}
+        onClose={() => setShowAdventureWizard(false)}
+      />
     </View>
   );
 }
@@ -372,5 +262,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryBg,
     marginBottom: 80,
     overflow: "hidden",
+  },
+  adventureButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    gap: 8,
+    minHeight: 56,
+  },
+  adventureButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.white,
   },
 });

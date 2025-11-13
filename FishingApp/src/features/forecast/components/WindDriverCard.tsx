@@ -6,6 +6,19 @@ import { BORDER, CARD_BG } from "../tokens";
 import { Driver } from "../types";
 import { knotsToBeaufort, parseWindKnots } from "../utils/wind";
 
+// Enhanced Glass Morphism Styling - Clearer Effect
+const getGlassStyle = (highlight = false) => ({
+  backgroundColor: highlight
+    ? "rgba(18, 219, 192, 0.2)"
+    : "rgba(255, 255, 255, 0.12)",
+  borderWidth: 1.5,
+  borderColor: highlight
+    ? "rgba(18, 219, 192, 0.4)"
+    : "rgba(255, 255, 255, 0.25)",
+  borderRadius: 16,
+  // No shadows to eliminate dark center effect
+});
+
 type Props = { driver: Driver };
 
 export default function WindDriverCard({ driver }: Props) {
@@ -27,7 +40,11 @@ export default function WindDriverCard({ driver }: Props) {
 
   return (
     <View
-      style={[styles.card, driver.verdict === "warn" ? styles.warn : undefined]}
+      style={[
+        styles.card,
+        getGlassStyle(),
+        driver.verdict === "warn" ? styles.warn : undefined,
+      ]}
     >
       <View style={styles.header}>
         <Flag
@@ -46,14 +63,11 @@ const styles = StyleSheet.create({
   card: {
     width: 180,
     padding: 12,
-    borderRadius: 14,
-    backgroundColor: CARD_BG,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    borderRadius: 16,
   },
   warn: {
-    borderColor: "rgba(255,209,102,0.35)",
-    backgroundColor: "rgba(255,209,102,0.10)",
+    borderColor: "rgba(255,209,102,0.4)",
+    backgroundColor: "rgba(255,209,102,0.2)",
   },
   header: { flexDirection: "row", alignItems: "center", gap: 8 },
   title: { color: colors.white, fontSize: 13, fontWeight: "700" },
