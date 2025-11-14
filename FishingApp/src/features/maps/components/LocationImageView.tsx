@@ -14,7 +14,7 @@ import {
   MapsImageService,
   MapsImageOptions,
 } from "../services/mapsImageService";
-import { LocationInfo } from "../types";
+import { LocationInfo } from "../../location/types/location";
 
 interface LocationImageViewProps {
   location: LocationInfo | { latitude: number; longitude: number };

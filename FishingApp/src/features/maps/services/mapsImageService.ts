@@ -1,5 +1,5 @@
 // Maps Image Service for getting location images from Google Maps API
-import { LocationInfo } from "../types";
+import { LocationInfo } from "../../location/types/location";
 
 export interface MapsImageOptions {
   width?: number;

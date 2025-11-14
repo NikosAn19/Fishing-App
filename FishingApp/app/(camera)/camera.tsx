@@ -16,7 +16,10 @@ export default function CameraScreen() {
       <View style={styles.container}>
         <View style={styles.permissionContainer}>
           <Text style={styles.permissionText}>Χρειάζεται άδεια κάμερας</Text>
-          <Pressable style={styles.permissionButton} onPress={requestPermission}>
+          <Pressable
+            style={styles.permissionButton}
+            onPress={requestPermission}
+          >
             <Text style={styles.permissionButtonText}>Δώσε άδεια</Text>
           </Pressable>
         </View>
@@ -43,7 +46,7 @@ export default function CameraScreen() {
       console.log("📋 Photo object:", photo);
       console.log("🔗 Photo URI:", photo.uri);
 
-      // Στείλ’ το στο review ΚΩΔΙΚΟΠΟΙΗΜΕΝΟ
+      // Στείλ' το στο review ΚΩΔΙΚΟΠΟΙΗΜΕΝΟ
       const encoded = encodeURIComponent(photo.uri);
       router.push({ pathname: "/review", params: { uri: encoded } });
     } catch (error) {
@@ -99,35 +102,84 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "black" },
   camera: { flex: 1 },
   topControls: {
-    position: "absolute", top: 0, left: 0, right: 0,
-    flexDirection: "row", justifyContent: "space-between",
-    paddingHorizontal: 20, paddingTop: 50, zIndex: 10,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    zIndex: 10,
   },
   closeButton: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   closeButtonText: { color: "white", fontSize: 20, fontWeight: "bold" },
   flashButton: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   flashButtonText: { fontSize: 20, color: "white" },
-  bottomControls: { position: "absolute", bottom: 50, left: 0, right: 0, alignItems: "center", zIndex: 10 },
-  controlsRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 40 },
+  bottomControls: {
+    position: "absolute",
+    bottom: 50,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 10,
+  },
+  controlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 40,
+  },
   controlButton: {
-    paddingHorizontal: 16, paddingVertical: 8,
-    backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    borderRadius: 8,
   },
   controlText: { color: "white", fontSize: 16, fontWeight: "500" },
   captureButton: {
-    height: 80, width: 80, borderRadius: 40, backgroundColor: "white",
-    alignItems: "center", justifyContent: "center", borderWidth: 4, borderColor: "#12dbc0",
+    height: 80,
+    width: 80,
+    borderRadius: 40,
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "#12dbc0",
   },
   captureText: { fontSize: 40, color: "#12dbc0" },
   placeholderButton: { width: 60 },
-  permissionContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20 },
-  permissionText: { fontSize: 18, color: "white", textAlign: "center", marginBottom: 20 },
-  permissionButton: { backgroundColor: "#12dbc0", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  permissionContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  permissionText: {
+    fontSize: 18,
+    color: "white",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  permissionButton: {
+    backgroundColor: "#12dbc0",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
   permissionButtonText: { color: "white", fontSize: 16, fontWeight: "600" },
 });

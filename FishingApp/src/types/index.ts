@@ -1,8 +1,8 @@
 // Export all types from their respective files
 export * from "../features/location/types/location";
+export * from "../features/maps/types/maps";
 export * from "./fishing";
 export * from "./weather";
-export * from "./ui";
 
 // Common types that are used across multiple modules
 export interface BaseEntity {

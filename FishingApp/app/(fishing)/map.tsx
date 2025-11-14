@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import FishingMapView from "../src/components/MapView";
+import FishingMapView from "../../src/features/maps/components/MapView";
 
 export default function MapPage() {
   const insets = useSafeAreaInsets();

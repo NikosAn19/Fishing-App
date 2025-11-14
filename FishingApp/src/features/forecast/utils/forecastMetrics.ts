@@ -3,10 +3,13 @@ import { UnifiedForecast } from "../api/client";
 type NullableNumber = number | null | undefined;
 
 export const FORECAST_WEIGHTS = {
-  wind: 0.25,
-  waves: 0.25,
+  wind: 0.2,
+  waves: 0.2,
   clouds: 0.1,
-  constant: 0.4,
+  airTemp: 0.15,
+  waterTemp: 0.15,
+  pressure: 0.1,
+  constant: 0.1,
 } as const;
 
 export const BEST_TIME_THRESHOLD = 70;
@@ -40,6 +43,27 @@ export function scaleClouds(val?: NullableNumber) {
   return Math.max(0, 1 - distFrom30 * 1.2);
 }
 
+export function scaleTemperature(
+  val?: NullableNumber,
+  [idealMin, idealMax] = [15, 25]
+) {
+  if (val == null) return 0.5;
+  if (val >= idealMin && val <= idealMax) return 1;
+  const distance = val < idealMin ? idealMin - val : val - idealMax;
+  return Math.max(0, 1 - distance * 0.1);
+}
+
+export function scalePressure(
+  val?: NullableNumber,
+  goodThreshold = 1020,
+  maxThreshold = 1030
+) {
+  if (val == null) return 0.5;
+  if (val <= goodThreshold) return 1;
+  if (val >= maxThreshold) return 0;
+  return 1 - (val - goodThreshold) / (maxThreshold - goodThreshold);
+}
+
 export function computeCompositeScore(
   current: UnifiedForecast["current"],
   weights = FORECAST_WEIGHTS
@@ -47,10 +71,16 @@ export function computeCompositeScore(
   const windScore = scaleGood(current.wind.speed_kn);
   const waveScore = scaleInverse(current.wave.height_m);
   const cloudScore = scaleClouds(current.air.cloud_pct);
+  const airTempScore = scaleTemperature(current.air.temp_c);
+  const waterTempScore = scaleTemperature(current.wave.sea_temp_c);
+  const pressureScore = scalePressure(current.air.pressure_hpa);
   const total =
     windScore * weights.wind +
     waveScore * weights.waves +
     cloudScore * weights.clouds +
+    airTempScore * weights.airTemp +
+    waterTempScore * weights.waterTemp +
+    pressureScore * weights.pressure +
     weights.constant * weights.constant;
   return Math.round(total * 100);
 }

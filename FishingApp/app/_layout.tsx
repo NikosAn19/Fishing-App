@@ -6,6 +6,7 @@ import GlobalHeader from "../src/components/GlobalHeader";
 import BottomMenu from "../src/components/BottomMenu";
 import SplashScreen from "../src/components/SplashScreen";
 import { useAuth } from "../src/features/auth/hooks/useAuth";
+import { AuthStatus } from "../src/features/auth/types";
 
 export default function RootLayout() {
   const router = useRouter();
@@ -24,11 +25,11 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === AuthStatus.AUTHENTICATED) {
       if (pathname === "/login" || pathname === "/register") {
         requestAnimationFrame(() => router.replace("/"));
       }
-    } else if (status === "unauthenticated" && !showSplash) {
+    } else if (status === AuthStatus.UNAUTHENTICATED && !showSplash) {
       if (pathname !== "/login" && pathname !== "/register") {
         requestAnimationFrame(() => router.replace("/login"));
       }
@@ -51,12 +52,16 @@ export default function RootLayout() {
   const isCameraScreen = pathname === "/camera" || pathname === "/review";
   // Hide only bottom menu for guide screens
   const isGuideScreen = pathname === "/guide/species";
-  const isAuthenticated = status === "authenticated";
+  const isAuthenticated = status === AuthStatus.AUTHENTICATED;
   const showHeader = !isCameraScreen && !showSplash && isAuthenticated;
   const showBottomMenu =
     !isCameraScreen && !isGuideScreen && !showSplash && isAuthenticated;
 
-  if (showSplash || status === "idle" || status === "checking") {
+  if (
+    showSplash ||
+    status === AuthStatus.IDLE ||
+    status === AuthStatus.CHECKING
+  ) {
     return (
       <View style={styles.container}>
         <SplashScreen onFinish={() => setShowSplash(false)} />
@@ -80,7 +85,7 @@ export default function RootLayout() {
     <View style={styles.container}>
       <>
         {showHeader && <GlobalHeader />}
-        <Stack>
+        <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen
             name="index"
             options={{

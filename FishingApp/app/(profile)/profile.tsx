@@ -9,7 +9,7 @@ import {
   Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors } from "../src/theme/colors";
+import { colors } from "../../src/theme/colors";
 import {
   User,
   Mail,
@@ -62,10 +62,30 @@ export default function ProfileScreen({
   };
 
   const achievements = [
-    { icon: Fish, label: "Πρώτο Ψάρι", description: "Κατέγραψες το πρώτο σου ψάρι", unlocked: true },
-    { icon: Target, label: "Μαστρο-Ψαράς", description: "10 επιτυχημένα ψαρέματα", unlocked: true },
-    { icon: Trophy, label: "Πρωταθλητής", description: "50 επιτυχημένα ψαρέματα", unlocked: false },
-    { icon: Award, label: "Θρύλος", description: "100 επιτυχημένα ψαρέματα", unlocked: false },
+    {
+      icon: Fish,
+      label: "Πρώτο Ψάρι",
+      description: "Κατέγραψες το πρώτο σου ψάρι",
+      unlocked: true,
+    },
+    {
+      icon: Target,
+      label: "Μαστρο-Ψαράς",
+      description: "10 επιτυχημένα ψαρέματα",
+      unlocked: true,
+    },
+    {
+      icon: Trophy,
+      label: "Πρωταθλητής",
+      description: "50 επιτυχημένα ψαρέματα",
+      unlocked: false,
+    },
+    {
+      icon: Award,
+      label: "Θρύλος",
+      description: "100 επιτυχημένα ψαρέματα",
+      unlocked: false,
+    },
   ];
 
   return (
@@ -82,7 +102,10 @@ export default function ProfileScreen({
           </TouchableOpacity>
         ) : (
           <View style={styles.editActions}>
-            <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
+            <TouchableOpacity
+              onPress={handleCancel}
+              style={styles.cancelButton}
+            >
               <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
@@ -104,11 +127,17 @@ export default function ProfileScreen({
           >
             <View style={styles.imageInnerRing}>
               <View style={styles.imagePlaceholder}>
-                <User size={56} color={colors.textSecondary} strokeWidth={1.5} />
+                <User
+                  size={56}
+                  color={colors.textSecondary}
+                  strokeWidth={1.5}
+                />
               </View>
             </View>
           </LinearGradient>
-          <Text style={styles.userName}>{firstName} {lastName}</Text>
+          <Text style={styles.userName}>
+            {firstName} {lastName}
+          </Text>
         </View>
 
         {/* User Info Card */}
@@ -184,7 +213,7 @@ export default function ProfileScreen({
       {/* Achievements Section */}
       <View style={styles.achievementsSection}>
         <Text style={styles.sectionTitle}>Επιτεύγματα</Text>
-        
+
         <View style={styles.achievementsGrid}>
           {achievements.map((achievement, index) => {
             const Icon = achievement.icon;
@@ -204,7 +233,9 @@ export default function ProfileScreen({
                 >
                   <Icon
                     size={24}
-                    color={achievement.unlocked ? colors.accent : colors.textMuted}
+                    color={
+                      achievement.unlocked ? colors.accent : colors.textMuted
+                    }
                     strokeWidth={2.5}
                   />
                 </View>
@@ -219,7 +250,8 @@ export default function ProfileScreen({
                 <Text
                   style={[
                     styles.achievementDescription,
-                    !achievement.unlocked && styles.achievementDescriptionLocked,
+                    !achievement.unlocked &&
+                      styles.achievementDescriptionLocked,
                   ]}
                 >
                   {achievement.description}

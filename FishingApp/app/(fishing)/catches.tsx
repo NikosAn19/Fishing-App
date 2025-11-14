@@ -1,4 +1,4 @@
-// app/(drawer)/catches/index.tsx
+// app/(fishing)/catches.tsx
 import React, { useCallback, useState } from "react";
 import {
   View,
@@ -18,13 +18,13 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
-import { colors } from "../src/theme/colors";
-import { useCatches } from "../src/features/catches/hooks/useCatches";
+import { colors } from "../../src/theme/colors";
+import { useCatches } from "../../src/features/catches/hooks/useCatches";
 import {
   CatchItem,
   PhotoRef,
   FishRecognitionResult,
-} from "../src/features/catches/types";
+} from "../../src/features/catches/types";
 
 // API_BASE is now imported from centralized config
 

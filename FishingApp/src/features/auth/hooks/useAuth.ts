@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useAuthStore } from "../../../stores/authStore";
+import { useAuthStore } from "../stores/authStore";
+import { AuthStatus } from "../types";
 
 export function useAuth() {
   const status = useAuthStore((s) => s.status);
@@ -30,7 +31,7 @@ export function useAuth() {
     error,
     isLoading,
     ...actions,
-    isAuthenticated: status === "authenticated",
-    isUnauthenticated: status === "unauthenticated",
+    isAuthenticated: status === AuthStatus.AUTHENTICATED,
+    isUnauthenticated: status === AuthStatus.UNAUTHENTICATED,
   };
 }

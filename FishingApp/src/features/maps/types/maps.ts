@@ -1,4 +1,4 @@
-// UI-related types
+// Map-related types
 export interface MapViewProps {
   onMapPress?: (event: any) => void;
   onMarkerPress?: (marker: any) => void;

@@ -1,5 +1,5 @@
 import { API_BASE } from "../config/api";
-import { authStore } from "../stores/authStore";
+import { authStore } from "../features/auth/stores/authStore";
 
 type ApiFetchOptions = RequestInit & {
   skipAuth?: boolean;

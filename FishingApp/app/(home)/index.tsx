@@ -1,4 +1,4 @@
-// app/(drawer)/forecast/index.tsx
+// app/(home)/index.tsx
 
 import React, { useMemo, useState } from "react";
 import {
@@ -10,14 +10,14 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors } from "../src/theme/colors";
+import { colors } from "../../src/theme/colors";
 
-import ForecastHeader from "../src/features/forecast/components/ForecastHeader";
-import HeroCard from "../src/features/forecast/components/HeroCard";
-import DriversRow from "../src/features/forecast/components/DriversRow";
-import AlertBanner from "../src/features/forecast/components/AlertBanner";
-import RecommendationsGrid from "../src/features/forecast/components/BreakdownCard"; // ✅ correct import
-import ErrorState from "../src/components/ErrorState";
+import ForecastHeader from "../../src/features/forecast/components/ForecastHeader";
+import HeroCard from "../../src/features/forecast/components/HeroCard";
+import DriversRow from "../../src/features/forecast/components/DriversRow";
+import AlertBanner from "../../src/features/forecast/components/AlertBanner";
+import RecommendationsGrid from "../../src/features/forecast/components/BreakdownCard"; // ✅ correct import
+import ErrorState from "../../src/components/ErrorState";
 
 import {
   getStatus,
@@ -25,20 +25,20 @@ import {
   Recommendation,
   BreakdownItem,
   ForecastAlert,
-} from "../src/features/forecast/types";
-import { computeForecastScore } from "../src/features/forecast/utils/forecastMetrics";
+} from "../../src/features/forecast/types";
+import { computeForecastScore } from "../../src/features/forecast/utils/forecastMetrics";
 
 // Hooks + mappers to backend
-import { useCurrentLocation } from "../src/features/location/hooks/useCurrentLocation";
-import { useForecast } from "../src/features/forecast/hooks/useForecast";
+import { useCurrentLocation } from "../../src/features/location/hooks/useCurrentLocation";
+import { useForecast } from "../../src/features/forecast/hooks/useForecast";
 import {
   mapHeader,
   mapHero,
   mapDrivers,
   mapAlert,
   mapRecommendations,
-} from "../src/features/forecast/mappers/toUi";
-import AdventureScheduleModal from "../src/adventure-schedule/AdventureScheduleModal";
+} from "../../src/features/forecast/mappers/toUi";
+import AdventureScheduleModal from "../../src/adventure-schedule/AdventureScheduleModal";
 import { Compass } from "lucide-react-native";
 
 export default function ForecastScreen() {

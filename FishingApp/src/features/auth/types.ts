@@ -1,3 +1,10 @@
+export enum AuthStatus {
+  IDLE = "idle",
+  CHECKING = "checking",
+  AUTHENTICATED = "authenticated",
+  UNAUTHENTICATED = "unauthenticated",
+}
+
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;

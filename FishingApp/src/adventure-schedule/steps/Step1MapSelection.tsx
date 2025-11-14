@@ -12,7 +12,7 @@ import { colors } from "../../theme/colors";
 import { MapPin, Navigation, Check, Layers } from "lucide-react-native";
 import { useCurrentLocation } from "../../features/location/hooks/useCurrentLocation";
 import { useReverseGeocode } from "../../features/location/hooks/useReverseGeocode";
-import { MapTypeEnum } from "../../types/ui";
+import { MapTypeEnum } from "../../features/maps/types/maps";
 
 const { width, height } = Dimensions.get("window");
 

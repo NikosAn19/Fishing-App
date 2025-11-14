@@ -1,13 +1,13 @@
 import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { colors } from "../src/theme/colors";
+import { colors } from "../../src/theme/colors";
 
-export default function AdventuresPage() {
+export default function SettingsPage() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.header}>Οι Εξορμήσεις μου</Text>
+        <Text style={styles.header}>Ρυθμίσεις</Text>
         <Text style={styles.placeholder}>
-          Η λίστα των εξορμήσεων σας θα εμφανιστεί εδώ.
+          Οι ρυθμίσεις της εφαρμογής θα εμφανιστούν εδώ.
         </Text>
       </View>
     </ScrollView>

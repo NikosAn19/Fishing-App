@@ -7,10 +7,9 @@ import {
   LoginRequest,
   GoogleLoginRequest,
   AuthSuccessResponse,
-} from "../features/auth/types";
-import { authApi } from "../features/auth/api/client";
-
-type AuthStatus = "idle" | "checking" | "authenticated" | "unauthenticated";
+  AuthStatus,
+} from "../types";
+import { authApi } from "../api/client";
 
 const ACCESS_TOKEN_KEY = "auth_access_token";
 const REFRESH_TOKEN_KEY = "auth_refresh_token";
@@ -112,7 +111,7 @@ function applyAuthResponse(response: AuthSuccessResponse): {
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
-  status: "idle",
+  status: AuthStatus.IDLE,
   user: null,
   accessToken: null,
   refreshToken: null,
@@ -124,14 +123,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   async bootstrapSession() {
-    if (get().status === "checking") return;
-    set({ status: "checking", isLoading: true, error: null });
+    if (get().status === AuthStatus.CHECKING) return;
+    set({ status: AuthStatus.CHECKING, isLoading: true, error: null });
 
     try {
       const tokens = await loadTokens();
       if (!tokens) {
         set({
-          status: "unauthenticated",
+          status: AuthStatus.UNAUTHENTICATED,
           accessToken: null,
           refreshToken: null,
           user: null,
@@ -144,7 +143,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       try {
         const user = await authApi.me(accessToken);
         set({
-          status: "authenticated",
+          status: AuthStatus.AUTHENTICATED,
           user,
           accessToken,
           refreshToken: tokens.refreshToken,
@@ -160,7 +159,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         accessToken = newAccessToken;
         const user = await authApi.me(accessToken);
         set({
-          status: "authenticated",
+          status: AuthStatus.AUTHENTICATED,
           user,
           accessToken,
           refreshToken: get().refreshToken,
@@ -171,7 +170,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.warn("bootstrapSession failed:", error);
       await persistTokens(null);
       set({
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
         user: null,
         accessToken: null,
         refreshToken: null,
@@ -191,14 +190,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        status: "authenticated",
+        status: AuthStatus.AUTHENTICATED,
         isLoading: false,
       });
     } catch (error) {
       set({
         error: (error as Error).message ?? "Registration failed",
         isLoading: false,
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
       });
     }
   },
@@ -213,14 +212,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        status: "authenticated",
+        status: AuthStatus.AUTHENTICATED,
         isLoading: false,
       });
     } catch (error) {
       set({
         error: (error as Error).message ?? "Login failed",
         isLoading: false,
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
       });
     }
   },
@@ -235,14 +234,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        status: "authenticated",
+        status: AuthStatus.AUTHENTICATED,
         isLoading: false,
       });
     } catch (error) {
       set({
         error: (error as Error).message ?? "Google login failed",
         isLoading: false,
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
       });
     }
   },
@@ -260,14 +259,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        status: "authenticated",
+        status: AuthStatus.AUTHENTICATED,
       });
       return tokens.accessToken;
     } catch (error) {
       console.warn("refreshTokens failed:", error);
       await persistTokens(null);
       set({
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
         user: null,
         accessToken: null,
         refreshToken: null,
@@ -292,7 +291,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         user: null,
         accessToken: null,
         refreshToken: null,
-        status: "unauthenticated",
+        status: AuthStatus.UNAUTHENTICATED,
         isLoading: false,
         error: null,
       });

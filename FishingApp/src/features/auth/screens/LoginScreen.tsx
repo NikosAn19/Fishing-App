@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import * as Google from "expo-auth-session/providers/google";
 import { colors } from "../../../theme/colors";
 import { useAuth } from "../hooks/useAuth";
+import { AuthStatus } from "../types";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -46,7 +47,7 @@ export function LoginScreen() {
   }, [response, loginWithGoogle]);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === AuthStatus.AUTHENTICATED) {
       router.replace("/");
     }
   }, [status, router]);

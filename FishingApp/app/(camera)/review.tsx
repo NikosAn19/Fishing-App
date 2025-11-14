@@ -14,10 +14,10 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../src/theme/colors";
-import { useCameraStore } from "../src/stores/cameraStore";
-import { useImageUpload } from "../src/features/uploads/hooks/useUpload";
-import { API_BASE } from "../src/config/api";
+import { colors } from "../../src/theme/colors";
+import { useCameraStore } from "../../src/stores/cameraStore";
+import { useImageUpload } from "../../src/features/uploads/hooks/useUpload";
+import { API_BASE } from "../../src/config/api";
 
 // API_BASE is now imported from centralized config
 

@@ -30,7 +30,7 @@ const config: Config = {
     process.env.JWT_REFRESH_SECRET ||
     process.env.JWT_SECRET ||
     "fishing-app-refresh-secret",
-  jwtAccessExpiresIn: process.env.JWT_ACCESS_TTL || "15m",
+  jwtAccessExpiresIn: process.env.JWT_ACCESS_TTL || "2h",
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_TTL || "30d",
   maxFileSize: Number(process.env.MAX_FILE_SIZE) || 10485760, // 10MB
   uploadPath: process.env.UPLOAD_PATH || "./uploads",

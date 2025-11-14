@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, StyleSheet, Alert, Text, TouchableOpacity } from "react-native";
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocationStore } from "../features/location/stores/locationStore";
-import { MapViewProps, MapTypeEnum } from "../types";
+import { useLocationStore } from "../../location/stores/locationStore";
+import { MapViewProps, MapTypeEnum } from "../types/maps";
 
 export default function FishingMapView({
   onMapPress,
