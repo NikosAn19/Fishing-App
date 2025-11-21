@@ -21,7 +21,9 @@ import catchRoutes from "./routes/catches";
 import spotRoutes from "./routes/spots";
 import weatherRoutes from "./routes/weather";
 import forecastRoutes from "./routes/forecast";
-import uploadsRoutes from "./routes/uploads"; // ✅ NEW
+import uploadsRoutes from "./routes/uploads";
+import adventureRoutes from "./routes/adventures";
+import favoriteSpotsRoutes from "./routes/favoriteSpots";
 
 const app = express();
 
@@ -173,7 +175,9 @@ app.use("/api/catches", catchRoutes);
 app.use("/api/spots", spotRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/forecast", forecastRoutes);
-app.use("/api/uploads", uploadsRoutes); // ✅ NEW (POST /api/uploads/sign)
+app.use("/api/uploads", uploadsRoutes);
+app.use("/api/adventures", adventureRoutes);
+app.use("/api/favorite-spots", favoriteSpotsRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

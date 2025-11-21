@@ -1,4 +1,4 @@
-import { UnifiedForecast } from "../api/client";
+import { UnifiedForecast } from "../api/types";
 
 type NullableNumber = number | null | undefined;
 

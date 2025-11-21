@@ -1,4 +1,5 @@
 import express from "express";
+import { DEFAULT_TIMEZONE } from "../config/constants";
 import { buildUnifiedForecast } from "../services/forecastAggregator";
 import { z } from "zod";
 
@@ -11,7 +12,7 @@ const dateForecastSchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  tz: z.string().default("Europe/Athens"),
+  tz: z.string().default(DEFAULT_TIMEZONE),
 });
 
 // @desc    Get unified forecast data for fishing
@@ -19,7 +20,7 @@ const dateForecastSchema = z.object({
 // @access  Public
 router.get("/", async (req, res) => {
   try {
-    const { lat, lon, tz = "Europe/Athens" } = req.query;
+    const { lat, lon, tz = DEFAULT_TIMEZONE } = req.query;
 
     if (!lat || !lon) {
       res.status(400).json({ error: "Latitude and longitude are required" });

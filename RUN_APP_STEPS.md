@@ -84,3 +84,5 @@ npx expo start --tunnel
 - Check ngrok status at: http://localhost:4040
 - Make sure backend shows it's running on port 3000 before starting ngrok
 
+
+

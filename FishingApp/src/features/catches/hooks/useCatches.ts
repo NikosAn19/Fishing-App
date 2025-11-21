@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { API_BASE } from "../../../config/api";
+import { JSON_HEADERS } from "../../../utils/apiClient";
 import { CatchItem, FishRecognitionResult } from "../types";
 import { useCatchesStore } from "../../../stores/catchesStore";
 import { shallow } from "zustand/shallow";
@@ -114,9 +115,7 @@ export function useCatches({
   const recognizeFish = useCallback(async (photoUrl: string) => {
     const response = await fetch(`${API_BASE}/api/fish/recognize`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ photoUrl }),
     });
 

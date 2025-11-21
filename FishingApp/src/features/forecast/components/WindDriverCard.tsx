@@ -4,7 +4,6 @@ import { Flag } from "lucide-react-native";
 import { colors } from "../../../../src/theme/colors"; // adjust path
 import { BORDER, CARD_BG } from "../tokens";
 import { Driver } from "../types";
-import { knotsToBeaufort, parseWindKnots } from "../utils/wind";
 
 // Enhanced Glass Morphism Styling - Clearer Effect
 const getGlassStyle = (highlight = false) => ({
@@ -22,22 +21,6 @@ const getGlassStyle = (highlight = false) => ({
 type Props = { driver: Driver };
 
 export default function WindDriverCard({ driver }: Props) {
-  const parsed = parseWindKnots(driver.value);
-  let primary = driver.value; // fallback
-
-  if (parsed.minKn != null && parsed.maxKn != null) {
-    const bMin = knotsToBeaufort(parsed.minKn);
-    const bMax = knotsToBeaufort(parsed.maxKn);
-    primary = `${parsed.direction ? parsed.direction + " " : ""}${
-      bMin === bMax ? bMin : `${bMin}–${bMax}`
-    } Μποφόρ`;
-  } else if (parsed.singleKn != null) {
-    const b = knotsToBeaufort(parsed.singleKn);
-    primary = `${parsed.direction ? parsed.direction + " " : ""}${b} Μποφόρ`;
-  } else if (parsed.direction) {
-    primary = parsed.direction; // no numbers found, show direction only
-  }
-
   return (
     <View
       style={[
@@ -53,7 +36,7 @@ export default function WindDriverCard({ driver }: Props) {
         />
         <Text style={styles.title}>{driver.title}</Text>
       </View>
-      <Text style={styles.value}>{primary}</Text>
+      <Text style={styles.value}>{driver.value}</Text>
       {driver.note ? <Text style={styles.note}>{driver.note}</Text> : null}
     </View>
   );

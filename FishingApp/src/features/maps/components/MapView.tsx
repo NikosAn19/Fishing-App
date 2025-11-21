@@ -1,19 +1,25 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, StyleSheet, Alert, Text, TouchableOpacity } from "react-native";
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocationStore } from "../../location/stores/locationStore";
-import { MapViewProps, MapTypeEnum } from "../types/maps";
+import { MapViewProps, MapTypeEnum, FavoriteSpot } from "../types/maps";
 
 export default function FishingMapView({
   onMapPress,
   onMarkerPress,
+  onRegionChangeComplete,
+  favoriteSpots = [],
+  initialRegion,
 }: MapViewProps) {
-  const [mapType, setMapType] = useState<MapTypeEnum>(MapTypeEnum.STANDARD);
+  const [mapType, setMapType] = useState<MapTypeEnum>(MapTypeEnum.HYBRID);
   const [mapReady, setMapReady] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [localLoading, setLocalLoading] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const mapRef = useRef<MapView | null>(null);
+  const hasAnimatedToInitialRegionRef = useRef(false);
+  const previousInitialRegionRef = useRef<string | null>(null);
 
   const {
     currentLocation,
@@ -34,13 +40,15 @@ export default function FishingMapView({
     longitudeDelta: 0.1,
   };
 
-  // Use current location or default region
+  // Use current location or default region for MapView's initialRegion
+  // We DON'T use initialRegion prop here because we want to animate TO it
+  // If we set it as initialRegion, the map jumps there immediately with no animation
   const mapRegion: Region = currentLocation
     ? {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.05, // Zoomed out to show ~5-10km radius
+        longitudeDelta: 0.05,
       }
     : defaultRegion;
 
@@ -88,6 +96,58 @@ export default function FishingMapView({
       setForceUpdate((prev) => prev + 1);
     }
   }, [isLoading, hasPermission, currentLocation, error]);
+
+  // Animate to initialRegion if provided, otherwise to current location when available
+  // Combined reset and animation logic to avoid race conditions
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    if (initialRegion) {
+      // Create a key from the region coordinates
+      const regionKey = `${initialRegion.latitude.toFixed(
+        6
+      )},${initialRegion.longitude.toFixed(6)}`;
+
+      // Check if this is a different region than what we've animated to
+      if (previousInitialRegionRef.current !== regionKey) {
+        // Reset tracking refs to ensure animation triggers
+        previousInitialRegionRef.current = null;
+        hasAnimatedToInitialRegionRef.current = false;
+
+        // Small delay to ensure map is fully rendered at its initial position
+        // This ensures we animate FROM the current position TO the target
+        const timeoutId = setTimeout(() => {
+          if (mapRef.current && mapReady) {
+            mapRef.current.animateToRegion(initialRegion, 1000);
+            previousInitialRegionRef.current = regionKey;
+            hasAnimatedToInitialRegionRef.current = true;
+          }
+        }, 200); // Delay to ensure map is ready and positioned
+
+        return () => clearTimeout(timeoutId);
+      }
+    } else if (
+      currentLocation &&
+      !hasAnimatedToInitialRegionRef.current &&
+      !isLoading
+    ) {
+      // Animate to current location with zoomed out view - only once (when no initialRegion)
+      const region: Region = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.05, // Zoomed out view (~5-10km radius)
+        longitudeDelta: 0.05,
+      };
+      mapRef.current.animateToRegion(region, 1000); // 1 second animation
+      hasAnimatedToInitialRegionRef.current = true;
+    }
+  }, [
+    initialRegion?.latitude,
+    initialRegion?.longitude,
+    mapReady,
+    currentLocation,
+    isLoading,
+  ]);
 
   const toggleMapType = () => {
     const mapTypes = [
@@ -145,10 +205,12 @@ export default function FishingMapView({
       {mapError ? (
         // Fallback map without Google provider
         <MapView
+          ref={mapRef}
           style={styles.map}
           initialRegion={mapRegion}
           onPress={onMapPress}
           onMapReady={handleMapReady}
+          onRegionChangeComplete={onRegionChangeComplete}
           showsUserLocation={false}
           showsMyLocationButton={false}
           showsCompass={true}
@@ -171,15 +233,45 @@ export default function FishingMapView({
               pinColor="#12dbc0"
             />
           )}
+
+          {/* Favorite spots markers */}
+          {favoriteSpots.map((spot) => (
+            <Marker
+              key={spot.id}
+              coordinate={{
+                latitude: spot.latitude,
+                longitude: spot.longitude,
+              }}
+              title={spot.name}
+              description={spot.address || spot.description || "Favorite spot"}
+              pinColor="#fbbf24"
+              onPress={() => {
+                if (onMarkerPress) {
+                  onMarkerPress({
+                    id: spot.id,
+                    title: spot.name,
+                    description:
+                      spot.address || spot.description || "Favorite spot",
+                    coordinate: {
+                      latitude: spot.latitude,
+                      longitude: spot.longitude,
+                    },
+                  });
+                }
+              }}
+            />
+          ))}
         </MapView>
       ) : (
         // Primary map with Google provider
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={mapRegion}
           onPress={onMapPress}
           onMapReady={handleMapReady}
+          onRegionChangeComplete={onRegionChangeComplete}
           showsUserLocation={false}
           showsMyLocationButton={false}
           showsCompass={true}
@@ -208,6 +300,34 @@ export default function FishingMapView({
               pinColor="#12dbc0"
             />
           )}
+
+          {/* Favorite spots markers */}
+          {favoriteSpots.map((spot) => (
+            <Marker
+              key={spot.id}
+              coordinate={{
+                latitude: spot.latitude,
+                longitude: spot.longitude,
+              }}
+              title={spot.name}
+              description={spot.address || spot.description || "Favorite spot"}
+              pinColor="#fbbf24"
+              onPress={() => {
+                if (onMarkerPress) {
+                  onMarkerPress({
+                    id: spot.id,
+                    title: spot.name,
+                    description:
+                      spot.address || spot.description || "Favorite spot",
+                    coordinate: {
+                      latitude: spot.latitude,
+                      longitude: spot.longitude,
+                    },
+                  });
+                }
+              }}
+            />
+          ))}
         </MapView>
       )}
 

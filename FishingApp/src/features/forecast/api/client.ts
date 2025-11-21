@@ -1,65 +1,14 @@
 // src/features/forecast/api/client.ts
 import { Platform } from "react-native";
 import { API_BASE } from "../../../config/api";
-
-// API_BASE is now imported from centralized config
-
-export type UnifiedForecast = {
-  meta: {
-    lat: number;
-    lon: number;
-    tz: string;
-    generatedAt: string;
-    requestedDate?: string;
-    dateRange?: { startDate: string; endDate: string };
-  };
-  current: {
-    air: {
-      temp_c: number | null;
-      pressure_hpa: number | null;
-      cloud_pct: number | null;
-    };
-    wind: {
-      speed_kn: number | null;
-      dir_deg: number | null;
-      dir_cardinal: string | null;
-    };
-    wave: {
-      height_m: number | null;
-      period_s: number | null;
-      direction_deg: number | null;
-      swell_height_m: number | null;
-      wind_wave_height_m: number | null;
-      sea_temp_c: number | null;
-    };
-  };
-  sun: { sunrise: string; sunset: string; day_length_sec: number };
-  moon: { fraction: number; label: string };
-  hourly: {
-    time: string[];
-    wind_speed_kn: (number | null)[];
-    wind_dir_deg: (number | null)[];
-    wave_height_m: (number | null)[];
-    wave_period_s: (number | null)[];
-    cloud_pct: (number | null)[];
-    pressure_hpa: (number | null)[];
-    temp_c: (number | null)[];
-  };
-};
-
-type GetForecastOpts = {
-  /** Παράκαμψε το server cache layer; default: true (δεν στέλνεται) */
-  cache?: boolean;
-  /** Custom AbortSignal αν το διαχειρίζεσαι απ' έξω */
-  signal?: AbortSignal;
-  /** Timeout σε ms (default 12s) */
-  timeoutMs?: number;
-};
+import { DEFAULT_TIMEZONE } from "../../../config/time";
+import { JSON_HEADERS } from "../../../utils/apiClient";
+import { GetForecastOpts, UnifiedForecast } from "./types";
 
 export async function getForecast(
   lat: number,
   lon: number,
-  tz = "Europe/Athens",
+  tz = DEFAULT_TIMEZONE,
   date?: string,
   opts: GetForecastOpts = {}
 ) {
@@ -112,8 +61,9 @@ export async function getForecast(
       method: "GET",
       headers: {
         Accept: "application/json",
-        "Content-Type": "application/json",
+        ...JSON_HEADERS,
         "User-Agent": "FishingApp/1.0.0",
+        "ngrok-skip-browser-warning": "true", // Bypass ngrok browser warning
       },
       // Add these options for better compatibility
       mode: "cors",
@@ -154,8 +104,8 @@ export async function getForecast(
     const json = JSON.parse(text);
     console.log("🌊 Forecast data received (keys):", Object.keys(json ?? {}));
 
-    const { meta, current, sun, moon, hourly } = json;
-    return { meta, current, sun, moon, hourly } as UnifiedForecast;
+    const { meta, current, sun, moon, hourly, rain } = json;
+    return { meta, current, sun, moon, hourly, rain } as UnifiedForecast;
   } catch (error) {
     console.log("🌊 Fetch error:", error);
     console.log("🌊 Error type:", typeof error);

@@ -1,9 +1,19 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { Sun, Contrast, Sunrise, Sunset } from "lucide-react-native";
+import {
+  Sun,
+  Contrast,
+  Sunrise,
+  Sunset,
+  CloudRain,
+  CloudSun,
+} from "lucide-react-native";
 import { colors } from "../../../theme/colors";
 import { BestWindow, StatusInfo } from "../types";
+import { FORECAST_STRINGS } from "../strings";
 import ForecastScoreCard from "../../../components/ForecastScoreCard";
+
+type WeatherCondition = "rainy" | "cloudy" | "sunny";
 
 type Props = {
   score: number;
@@ -13,6 +23,10 @@ type Props = {
   moonLabel?: string;
   tideLabel?: string;
   sunsetLabel?: string;
+  weatherCondition?: {
+    condition: WeatherCondition;
+    label: string;
+  };
 };
 
 export default function HeroCard({
@@ -23,18 +37,48 @@ export default function HeroCard({
   moonLabel = "Φάση σελήνης: –",
   tideLabel = "Ανατολή ηλίου: –",
   sunsetLabel = "—",
+  weatherCondition,
 }: Props) {
+  const getWeatherIcon = () => {
+    if (!weatherCondition) return null;
+    switch (weatherCondition.condition) {
+      case "rainy":
+        return CloudRain;
+      case "cloudy":
+        return CloudSun; // Better icon for cloudy weather
+      case "sunny":
+        return Sun;
+      default:
+        return Sun;
+    }
+  };
+
+  const WeatherIcon = getWeatherIcon();
   return (
     <View style={styles.container}>
       {/* Hero Score Card */}
       <ForecastScoreCard
         score={score}
         style={styles.heroCard}
-        header={<Text style={styles.headerLabel}>Συνθήκες Ψαρέματος</Text>}
+        header={
+          <View style={styles.headerRow}>
+            <Text style={styles.headerLabel}>
+              {FORECAST_STRINGS.conditions}
+            </Text>
+            {weatherCondition && WeatherIcon && (
+              <View style={styles.weatherConditionBadge}>
+                <WeatherIcon size={28} color={colors.white} strokeWidth={2.5} />
+                <Text style={styles.weatherConditionText} numberOfLines={1}>
+                  {weatherCondition.label}
+                </Text>
+              </View>
+            )}
+          </View>
+        }
       >
         {/* Best Windows */}
         <View style={styles.windowsContainer}>
-          <Text style={styles.windowsTitle}>Καλύτερες Ώρες</Text>
+          <Text style={styles.windowsTitle}>{FORECAST_STRINGS.bestTimes}</Text>
           <View style={styles.windowsGrid}>
             {bestWindows.slice(0, 2).map((w, idx) => (
               <View key={idx} style={styles.windowChip}>
@@ -51,7 +95,10 @@ export default function HeroCard({
         {[
           { icon: Contrast, label: moonLabel },
           { icon: Sunrise, label: tideLabel },
-          { icon: Sunset, label: `Δύση: ${sunsetLabel}` },
+          {
+            icon: Sunset,
+            label: `${FORECAST_STRINGS.sunsetLabel}: ${sunsetLabel}`,
+          },
         ].map((item, idx) => (
           <View key={idx} style={styles.conditionCard}>
             <item.icon size={18} color={colors.accent} strokeWidth={2.5} />
@@ -77,6 +124,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   headerLabel: {
     color: colors.textPrimary,
     fontSize: 13,
@@ -84,6 +136,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: "uppercase",
     opacity: 0.85,
+  },
+  weatherConditionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.overlay20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  weatherConditionText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: "600",
+    maxWidth: 120,
   },
 
   windowsContainer: {

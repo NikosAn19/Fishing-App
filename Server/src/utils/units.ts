@@ -1,6 +1,8 @@
+import { MPS_TO_KNOTS } from "./conversions";
+
 export function msToKnots(ms: number | null): number | null {
   if (ms === null || ms === undefined) return null;
-  return ms * 1.94384; // Convert m/s to knots
+  return ms * MPS_TO_KNOTS; // Convert m/s to knots
 }
 
 export function degToCardinal(deg: number | null): string | null {

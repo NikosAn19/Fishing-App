@@ -1,4 +1,6 @@
-import { UnifiedForecast } from "../api/client";
+import { DEFAULT_TIMEZONE } from "../../../config/time";
+import { UnifiedForecast } from "../api/types";
+import { FORECAST_STRINGS } from "../strings";
 import {
   BEST_TIME_THRESHOLD,
   computeForecastScore,
@@ -25,7 +27,7 @@ function safeTimeLabel(iso?: string, tz?: string) {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-      timeZone: tz || "Europe/Athens",
+      timeZone: tz || DEFAULT_TIMEZONE,
     }).format(d);
   } catch {
     // Fallback αν λείπει Intl TZ ή είναι άκυρο το TZ
@@ -59,15 +61,15 @@ export function mapHero(f: UnifiedForecast) {
           label: safeTimeLabel(slot.isoTime, f.meta?.tz),
           icon: idx === 0 ? "sunny-outline" : "moon-outline",
         }))
-      : [
-          { label: "06:00–08:00", icon: "sunny-outline" },
-          { label: "18:30–19:45", icon: "moon-outline" },
-        ];
+      : FORECAST_STRINGS.fallbackBestTimes.map((fb) => ({
+          label: fb.label,
+          icon: fb.icon,
+        }));
 
-  const moonLabel = `Φάση σελήνης: ${Math.round(
+  const moonLabel = `${FORECAST_STRINGS.moonPhase}: ${Math.round(
     (f.moon.fraction ?? 0) * 100
   )}%`;
-  const tideLabel = `Ανατολή ηλίου: ${safeTimeLabel(
+  const tideLabel = `${FORECAST_STRINGS.sunrise}: ${safeTimeLabel(
     f.sun?.sunrise,
     f.meta?.tz
   )}`;
@@ -79,53 +81,45 @@ export function mapHero(f: UnifiedForecast) {
 }
 
 export function mapDrivers(f: UnifiedForecast): Driver[] {
+  const formatted = f.current.formatted;
   const w = f.current.wind;
   const wave = f.current.wave;
-  const air = f.current.air;
-
-  const windStr = `${w.dir_cardinal ?? ""} ${Math.round(
-    w.speed_kn ?? 0
-  )} kn`.trim();
-  const waveStr = `${(wave.height_m ?? 0).toFixed(1)} m @ ${Math.round(
-    wave.period_s ?? 0
-  )} s`;
 
   return [
     {
       icon: "wind",
-      title: "Άνεμος",
-      value: windStr,
+      title: FORECAST_STRINGS.wind,
+      value: formatted.wind.display_beaufort,
       verdict: verdict(w.speed_kn, [0, 20, 30]),
     },
     {
       icon: "waves",
-      title: "Κύμα",
-      value: waveStr,
+      title: FORECAST_STRINGS.waves,
+      value: formatted.wave.display,
       verdict: verdict(wave.height_m, [0, 0.8, 1.2]),
     },
     {
       icon: "thermometer",
-      title: "Θερμ. αέρα",
-      value: air.temp_c != null ? `${air.temp_c.toFixed(1)}°C` : "—",
+      title: FORECAST_STRINGS.airTemp,
+      value: formatted.air.temp_display,
       verdict: "ok",
     },
     {
       icon: "droplets",
-      title: "Θερμ. νερού",
-      value: wave.sea_temp_c != null ? `${wave.sea_temp_c.toFixed(1)}°C` : "—",
+      title: FORECAST_STRINGS.waterTemp,
+      value: formatted.water.temp_display,
       verdict: "ok",
     },
     {
       icon: "cloud",
-      title: "Νεφοκάλυψη",
-      value: air.cloud_pct != null ? `${Math.round(air.cloud_pct)}%` : "—",
+      title: FORECAST_STRINGS.clouds,
+      value: formatted.air.cloud_display,
       verdict: "ok",
     },
     {
       icon: "gauge",
-      title: "Πίεση",
-      value:
-        air.pressure_hpa != null ? `${Math.round(air.pressure_hpa)} hPa` : "—",
+      title: FORECAST_STRINGS.pressure,
+      value: formatted.air.pressure_display,
       verdict: "ok",
     },
   ];
@@ -139,12 +133,12 @@ export function mapRecommendations(_f: UnifiedForecast): Recommendation[] {
   return [
     {
       icon: "fish-outline",
-      title: "Τεχνική",
+      title: FORECAST_STRINGS.recommendations.technique,
       lines: ["Spinning", "Minnow 90–120mm", "Slow retrieve + twitches"],
     },
     {
       icon: "flame-outline",
-      title: "Δόλωμα",
+      title: FORECAST_STRINGS.recommendations.bait,
       lines: ["Γαρίδα / καραβιδάκι", "Αγκίστρι 1/0–2/0", "Fluoro 0.26–0.30"],
     },
   ];
@@ -157,29 +151,83 @@ export function mapBreakdown(f: UnifiedForecast): {
   const total = computeForecastScore(f);
   const items: BreakdownItem[] = [
     {
-      key: "Άνεμος",
+      key: FORECAST_STRINGS.breakdown.wind,
       weight: 0.25,
       score: scaleGood(f.current.wind.speed_kn, [0, 12, 25]),
       color: "#00e6b8",
     },
     {
-      key: "Κύμα",
+      key: FORECAST_STRINGS.breakdown.waves,
       weight: 0.25,
       score: scaleInverse(f.current.wave.height_m, [0.2, 0.8, 1.4]),
       color: "#39c6ff",
     },
     {
-      key: "Νέφη",
+      key: FORECAST_STRINGS.breakdown.clouds,
       weight: 0.1,
       score: scaleClouds(f.current.air.cloud_pct),
       color: "#ffd166",
     },
-    { key: "Πίεση", weight: 0.1, score: 0.6, color: "#ff9f7a" },
-    { key: "Σελήνη", weight: 0.05, score: 0.5, color: "#bfbfbf" },
-    { key: "Θερμ.", weight: 0.1, score: 0.8, color: "#7fdc9b" },
-    { key: "Swell", weight: 0.15, score: 0.7, color: "#8b78ff" },
+    {
+      key: FORECAST_STRINGS.breakdown.pressure,
+      weight: 0.1,
+      score: 0.6,
+      color: "#ff9f7a",
+    },
+    {
+      key: FORECAST_STRINGS.breakdown.moon,
+      weight: 0.05,
+      score: 0.5,
+      color: "#bfbfbf",
+    },
+    {
+      key: FORECAST_STRINGS.breakdown.temp,
+      weight: 0.1,
+      score: 0.8,
+      color: "#7fdc9b",
+    },
+    {
+      key: FORECAST_STRINGS.breakdown.swell,
+      weight: 0.15,
+      score: 0.7,
+      color: "#8b78ff",
+    },
   ];
   return { total, items };
+}
+
+/**
+ * Map rain data for UI display
+ */
+export function mapRain(f: UnifiedForecast): {
+  currentStatus: string;
+  todayForecast: string;
+  dailyForecast: Array<{
+    date: string;
+    display: string;
+    willRain: boolean;
+    pop: number;
+  }>;
+} {
+  const rain = f.rain;
+  if (!rain) {
+    return {
+      currentStatus: "—",
+      todayForecast: "—",
+      dailyForecast: [],
+    };
+  }
+
+  return {
+    currentStatus: rain.formatted?.current || "—",
+    todayForecast: rain.formatted?.today || "—",
+    dailyForecast: rain.daily.map((d, idx) => ({
+      date: d.date,
+      display: rain.formatted?.daily?.[idx] || "—",
+      willRain: d.willRain,
+      pop: d.pop,
+    })),
+  };
 }
 
 /* heuristics */

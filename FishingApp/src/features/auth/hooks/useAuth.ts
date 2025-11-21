@@ -14,6 +14,7 @@ export function useAuth() {
     const store = useAuthStore.getState();
     return {
       bootstrapSession: store.bootstrapSession,
+      refreshUser: store.refreshUser,
       register: store.register,
       login: store.login,
       loginWithGoogle: store.loginWithGoogle,

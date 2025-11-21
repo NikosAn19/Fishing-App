@@ -15,13 +15,7 @@ export async function fetchOpenMeteoWeather(
   const params = new URLSearchParams({
     latitude: String(lat),
     longitude: String(lon),
-    hourly: [
-      "temperature_2m",
-      "pressure_msl",
-      "cloud_cover",
-      "wind_speed_10m",
-      "wind_direction_10m",
-    ].join(","),
+    hourly: ["temperature_2m", "pressure_msl", "cloud_cover"].join(","),
     current_weather: "true",
     timezone: tz,
   });
@@ -36,13 +30,9 @@ export async function fetchOpenMeteoWeather(
   const res = await fetch(`${WEATHER_BASE}?${params}`);
   if (!res.ok) throw new Error(`OpenMeteo weather HTTP ${res.status}`);
   return res.json() as Promise<
-    OMHourly<
-      | "temperature_2m"
-      | "pressure_msl"
-      | "cloud_cover"
-      | "wind_speed_10m"
-      | "wind_direction_10m"
-    > & { current_weather: any }
+    OMHourly<"temperature_2m" | "pressure_msl" | "cloud_cover"> & {
+      current_weather: any;
+    }
   >;
 }
 

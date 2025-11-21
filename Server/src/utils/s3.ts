@@ -4,6 +4,7 @@ import {
   PutObjectCommand,
   HeadObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
   ListBucketsCommand,
 } from "@aws-sdk/client-s3";
@@ -87,7 +88,7 @@ export function buildPublicUrl(key: string) {
     console.log("🔗 Using CDN_BASE URL:", url);
     return url;
   }
-  
+
   // Fallback: Hardcoded CDN URL (αφού το CDN_BASE δεν είναι set)
   const fallbackCdn = "https://pub-6152823702fd4064a507eac85c165f45.r2.dev";
   const url = `${fallbackCdn}/${encodeURI(key)}`;
@@ -97,6 +98,58 @@ export function buildPublicUrl(key: string) {
   // ΣΧΟΛΙΟ: Το raw R2 URL δεν δουλεύει - δίνει 400 errors
   // const url = `${endpoint}/${bucket}/${encodeURI(key)}`;
 }
+/** Extract R2 key from CDN URL */
+export function extractKeyFromUrl(url: string): string | null {
+  if (!url || typeof url !== "string") {
+    return null;
+  }
+
+  try {
+    // Try with CDN_BASE from env
+    if (cdnBase) {
+      const cdnBaseClean = cdnBase.replace(/\/+$/, "");
+      if (url.startsWith(cdnBaseClean)) {
+        const key = url.substring(cdnBaseClean.length + 1); // +1 for the slash
+        return decodeURIComponent(key);
+      }
+    }
+
+    // Try with fallback hardcoded CDN
+    const fallbackCdn = "https://pub-6152823702fd4064a507eac85c165f45.r2.dev";
+    if (url.startsWith(fallbackCdn)) {
+      const key = url.substring(fallbackCdn.length + 1); // +1 for the slash
+      return decodeURIComponent(key);
+    }
+
+    // If URL doesn't match known CDN patterns, return null
+    return null;
+  } catch (error) {
+    console.warn("extractKeyFromUrl failed:", error);
+    return null;
+  }
+}
+
+/** Delete object from R2 */
+export async function deleteObject(key: string): Promise<boolean> {
+  if (!key) {
+    console.warn("deleteObject: No key provided");
+    return false;
+  }
+
+  try {
+    const cmd = new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+    await s3.send(cmd);
+    console.log("✅ Successfully deleted object from R2:", key);
+    return true;
+  } catch (error) {
+    console.warn("❌ Failed to delete object from R2:", key, error);
+    return false;
+  }
+}
+
 /** (Προαιρετικά) μικρά debug helpers για διαγνώσεις */
 export async function r2HeadBucket() {
   return s3.send(new HeadBucketCommand({ Bucket: bucket }));

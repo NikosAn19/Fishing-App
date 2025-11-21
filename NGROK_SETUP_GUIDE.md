@@ -127,3 +127,5 @@ npx expo start --tunnel
 - Keep all 3 terminals running (backend, ngrok, Expo)
 - ngrok free tier URLs change on restart
 - For production, consider ngrok paid plan with fixed domain
+
+

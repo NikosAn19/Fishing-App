@@ -1,6 +1,7 @@
 // src/services/uploads.ts
 import * as FileSystem from "expo-file-system/legacy";
 import { API_BASE } from "../config/api";
+import { JSON_HEADERS } from "../utils/apiClient";
 
 // API_BASE is now imported from centralized config
 
@@ -22,7 +23,7 @@ async function signUpload(contentType: string, ext: string): Promise<SignRes> {
   console.log("📝 Calling sign upload API:", `${API_BASE}/api/uploads/sign`);
   const res = await fetch(`${API_BASE}/api/uploads/sign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: JSON_HEADERS,
     body: JSON.stringify({ contentType, ext }),
   });
   console.log("📝 Sign response status:", res.status);
@@ -57,7 +58,7 @@ async function completeUpload(
   );
   const res = await fetch(`${API_BASE}/api/uploads/complete`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: JSON_HEADERS,
     body: JSON.stringify({ fileKey, contentType }),
   });
   console.log("✅ Complete response status:", res.status);

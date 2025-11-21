@@ -2,19 +2,18 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import {
-  AuthUser,
-  RegisterRequest,
-  LoginRequest,
-  GoogleLoginRequest,
   AuthSuccessResponse,
   AuthStatus,
+  AuthUser,
+  GoogleLoginRequest,
+  LoginRequest,
+  RegisterRequest,
 } from "../types";
 import { authApi } from "../api/client";
+import { AuthActions, AuthState, AuthStore, TokenPair } from "./types";
 
 const ACCESS_TOKEN_KEY = "auth_access_token";
 const REFRESH_TOKEN_KEY = "auth_refresh_token";
-
-type TokenPair = { accessToken: string; refreshToken: string };
 
 async function isSecureStoreAvailable(): Promise<boolean> {
   try {
@@ -76,27 +75,6 @@ async function loadTokens(): Promise<TokenPair | null> {
   return null;
 }
 
-interface AuthState {
-  status: AuthStatus;
-  user: AuthUser | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  error: string | null;
-  isLoading: boolean;
-}
-
-interface AuthActions {
-  bootstrapSession: () => Promise<void>;
-  register: (payload: RegisterRequest) => Promise<void>;
-  login: (payload: LoginRequest) => Promise<void>;
-  loginWithGoogle: (payload: GoogleLoginRequest) => Promise<void>;
-  logout: () => Promise<void>;
-  refreshTokens: () => Promise<string | null>;
-  clearError: () => void;
-}
-
-type AuthStore = AuthState & AuthActions;
-
 function applyAuthResponse(response: AuthSuccessResponse): {
   user: AuthUser;
   tokens: TokenPair;
@@ -120,6 +98,24 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   clearError() {
     set({ error: null });
+  },
+
+  async refreshUser() {
+    const { accessToken } = get();
+    if (!accessToken) {
+      console.warn("refreshUser: No access token available");
+      return;
+    }
+
+    try {
+      const user = await authApi.me(accessToken);
+      set({ user }); // Only update user, don't change status
+      console.log("✅ User refreshed successfully");
+    } catch (error) {
+      console.warn("refreshUser failed:", error);
+      // Don't change status on error, just log it
+      // If token is invalid, bootstrapSession will handle it on next app start
+    }
   },
 
   async bootstrapSession() {

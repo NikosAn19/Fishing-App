@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
+  Alert,
+  ActionSheetIOS,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "../../src/theme/colors";
@@ -21,44 +25,71 @@ import {
   Target,
   Award,
 } from "lucide-react-native";
+import { useAuth } from "../../src/features/auth/hooks/useAuth";
+import { useAvatarUpload } from "../../src/features/profile/hooks/useAvatarUpload";
+import { useProfileUpdate } from "../../src/features/profile/hooks/useProfileUpdate";
 
-interface ProfileScreenProps {
-  initialData?: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    profileImage?: string;
-  };
-  onSave?: (data: {
-    firstName: string;
-    lastName: string;
-    email: string;
-  }) => void;
-}
-
-export default function ProfileScreen({
-  initialData = {
-    firstName: "Νίκας",
-    lastName: "Παπαδόπουλος",
-    email: "nikas@psaraki.gr",
-  },
-  onSave,
-}: ProfileScreenProps) {
+export default function ProfileScreen() {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [firstName, setFirstName] = useState(initialData.firstName);
-  const [lastName, setLastName] = useState(initialData.lastName);
-  const [email, setEmail] = useState(initialData.email);
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const { uploading, handlePickAndUpload, handleTakePhotoAndUpload } =
+    useAvatarUpload();
+  const { updateDisplayName, updating } = useProfileUpdate();
 
-  const handleSave = () => {
-    onSave?.({ firstName, lastName, email });
-    setIsEditing(false);
+  // Update displayName when user data changes
+  useEffect(() => {
+    if (user?.displayName) {
+      setDisplayName(user.displayName);
+    }
+  }, [user?.displayName]);
+
+  const handleSave = async () => {
+    try {
+      if (displayName !== user?.displayName) {
+        await updateDisplayName(displayName);
+      }
+      setIsEditing(false);
+    } catch (error) {
+      Alert.alert("Error", "Failed to update profile");
+    }
   };
 
   const handleCancel = () => {
-    setFirstName(initialData.firstName);
-    setLastName(initialData.lastName);
-    setEmail(initialData.email);
+    // Reset to original user data
+    setDisplayName(user?.displayName || "");
     setIsEditing(false);
+  };
+
+  const handleAvatarPress = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Take Photo", "Choose from Library"],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            handleTakePhotoAndUpload();
+          } else if (buttonIndex === 2) {
+            handlePickAndUpload();
+          }
+        }
+      );
+    } else {
+      // Android: Use Alert
+      Alert.alert("Change Avatar", "Select an option", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Take Photo",
+          onPress: handleTakePhotoAndUpload,
+        },
+        {
+          text: "Choose from Library",
+          onPress: handlePickAndUpload,
+        },
+      ]);
+    }
   };
 
   const achievements = [
@@ -108,8 +139,16 @@ export default function ProfileScreen({
             >
               <X size={20} color={colors.textSecondary} strokeWidth={2.5} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-              <Check size={20} color={colors.white} strokeWidth={2.5} />
+            <TouchableOpacity
+              onPress={handleSave}
+              style={styles.saveButton}
+              disabled={updating}
+            >
+              {updating ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Check size={20} color={colors.white} strokeWidth={2.5} />
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -119,24 +158,41 @@ export default function ProfileScreen({
       <View style={styles.profileCard}>
         {/* Profile Image Section */}
         <View style={styles.imageSection}>
-          <LinearGradient
-            colors={[colors.accentGradientStart, colors.accentGradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.imageGradientRing}
+          <TouchableOpacity
+            onPress={handleAvatarPress}
+            disabled={uploading}
+            activeOpacity={0.7}
           >
-            <View style={styles.imageInnerRing}>
-              <View style={styles.imagePlaceholder}>
-                <User
-                  size={56}
-                  color={colors.textSecondary}
-                  strokeWidth={1.5}
-                />
+            <LinearGradient
+              colors={[colors.accentGradientStart, colors.accentGradientEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.imageGradientRing}
+            >
+              <View style={styles.imageInnerRing}>
+                {uploading ? (
+                  <View style={styles.imagePlaceholder}>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                  </View>
+                ) : user?.avatarUrl ? (
+                  <Image
+                    source={{ uri: user.avatarUrl }}
+                    style={styles.profileImage}
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <User
+                      size={56}
+                      color={colors.textSecondary}
+                      strokeWidth={1.5}
+                    />
+                  </View>
+                )}
               </View>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
+          </TouchableOpacity>
           <Text style={styles.userName}>
-            {firstName} {lastName}
+            {displayName || user?.email || "Χρήστης"}
           </Text>
         </View>
 
@@ -151,35 +207,15 @@ export default function ProfileScreen({
               {isEditing ? (
                 <TextInput
                   style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
+                  value={displayName}
+                  onChangeText={setDisplayName}
                   placeholder="Όνομα"
                   placeholderTextColor={colors.textMuted}
                 />
               ) : (
-                <Text style={styles.infoValue}>{firstName}</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoIconContainer}>
-              <User size={18} color={colors.accent} strokeWidth={2.5} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Επώνυμο</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Επώνυμο"
-                  placeholderTextColor={colors.textMuted}
-                />
-              ) : (
-                <Text style={styles.infoValue}>{lastName}</Text>
+                <Text style={styles.infoValue}>
+                  {displayName || "Δεν έχει οριστεί"}
+                </Text>
               )}
             </View>
           </View>
@@ -192,19 +228,9 @@ export default function ProfileScreen({
             </View>
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Email</Text>
-              {isEditing ? (
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              ) : (
-                <Text style={styles.infoValue}>{email}</Text>
-              )}
+              <Text style={styles.infoValue}>
+                {user?.email || "Δεν έχει οριστεί"}
+              </Text>
             </View>
           </View>
         </View>
@@ -359,6 +385,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondaryBg,
     alignItems: "center",
     justifyContent: "center",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 52,
   },
   userName: {
     fontSize: 24,
