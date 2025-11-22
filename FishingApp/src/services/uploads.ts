@@ -1,9 +1,6 @@
 // src/services/uploads.ts
 import * as FileSystem from "expo-file-system/legacy";
-import { API_BASE } from "../config/api";
-import { JSON_HEADERS } from "../utils/apiClient";
-
-// API_BASE is now imported from centralized config
+import { JSON_HEADERS, apiFetchJson } from "../utils/apiClient";
 
 export type SignRes = {
   fileKey: string;
@@ -20,15 +17,12 @@ export type CompleteRes = {
 };
 
 async function signUpload(contentType: string, ext: string): Promise<SignRes> {
-  console.log("📝 Calling sign upload API:", `${API_BASE}/api/uploads/sign`);
-  const res = await fetch(`${API_BASE}/api/uploads/sign`, {
+  console.log("📝 Calling sign upload API: /api/uploads/sign");
+  return apiFetchJson<SignRes>("/api/uploads/sign", {
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify({ contentType, ext }),
   });
-  console.log("📝 Sign response status:", res.status);
-  if (!res.ok) throw new Error(`sign failed: ${res.status}`);
-  return res.json();
 }
 
 async function putToR2(
@@ -53,17 +47,13 @@ async function completeUpload(
   contentType?: string
 ): Promise<CompleteRes> {
   console.log(
-    "✅ Calling complete upload API:",
-    `${API_BASE}/api/uploads/complete`
+    "✅ Calling complete upload API: /api/uploads/complete"
   );
-  const res = await fetch(`${API_BASE}/api/uploads/complete`, {
+  return apiFetchJson<CompleteRes>("/api/uploads/complete", {
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify({ fileKey, contentType }),
   });
-  console.log("✅ Complete response status:", res.status);
-  if (!res.ok) throw new Error(`complete failed: ${res.status}`);
-  return res.json();
 }
 
 /** High-level: υπογράφει → ανεβάζει → κάνει complete → επιστρέφει asset */

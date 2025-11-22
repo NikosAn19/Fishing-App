@@ -20,6 +20,7 @@ interface BottomMenuProps {
   onHomePress?: () => void;
   onMapPress?: () => void;
   onFishPress?: () => void;
+  onChatPress?: () => void;
   currentScreen?: string;
 }
 
@@ -27,6 +28,7 @@ export default function BottomMenu({
   onHomePress,
   onMapPress,
   onFishPress,
+  onChatPress,
   currentScreen,
 }: BottomMenuProps) {
   const insets = useSafeAreaInsets();
@@ -96,10 +98,27 @@ export default function BottomMenu({
           </Text>
         </TouchableOpacity>
 
-        {/* Hamburger Menu Button */}
-        <TouchableOpacity style={styles.menuButton} onPress={handleMenuPress}>
-          <Ionicons name="menu" size={24} color={colors.white} />
-          <Text style={styles.buttonText}>Menu</Text>
+        {/* Chat Button */}
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={onChatPress}
+          disabled={!onChatPress}
+        >
+          <Ionicons
+            name="chatbubbles"
+            size={24}
+            color={currentScreen?.startsWith("/chat") ? colors.accent : colors.white}
+          />
+          <Text
+            style={[
+              styles.buttonText,
+              {
+                color: currentScreen?.startsWith("/chat") ? colors.accent : colors.white,
+              },
+            ]}
+          >
+            Chat
+          </Text>
         </TouchableOpacity>
 
         {/* Fish Button - Circular and protruding */}

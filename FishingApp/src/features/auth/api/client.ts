@@ -1,76 +1,82 @@
-import { API_BASE } from "../../../config/api";
-import { JSON_HEADERS } from "../../../utils/apiClient";
+import { JSON_HEADERS, apiFetchJson } from "../../../utils/apiClient";
 import {
-  AuthResponse,
   AuthSuccessResponse,
   RegisterRequest,
   LoginRequest,
   GoogleLoginRequest,
-  AuthErrorResponse,
   AuthUser,
 } from "../types";
 
-const BASE_URL = `${API_BASE}/api/auth`;
-
-async function parseJson<T>(response: Response): Promise<T> {
-  const text = await response.text();
-  const data = text ? (JSON.parse(text) as T) : ({} as T);
-  if (!response.ok) {
-    const message =
-      (data as Partial<AuthErrorResponse>)?.error ||
-      response.statusText ||
-      "Request failed";
-    throw new Error(message);
-  }
-  return data;
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: JSON.stringify(body),
-  });
-  return parseJson<T>(res);
-}
+const BASE_PATH = "/api/auth";
 
 export async function register(
   payload: RegisterRequest
 ): Promise<AuthSuccessResponse> {
-  return postJson<AuthSuccessResponse>(`${BASE_URL}/register`, payload);
+  return apiFetchJson<AuthSuccessResponse>(`${BASE_PATH}/register`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
 }
 
 export async function login(
   payload: LoginRequest
 ): Promise<AuthSuccessResponse> {
-  return postJson<AuthSuccessResponse>(`${BASE_URL}/login`, payload);
+  return apiFetchJson<AuthSuccessResponse>(`${BASE_PATH}/login`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
 }
 
 export async function loginWithGoogle(
   payload: GoogleLoginRequest
 ): Promise<AuthSuccessResponse> {
-  return postJson<AuthSuccessResponse>(`${BASE_URL}/google`, payload);
+  return apiFetchJson<AuthSuccessResponse>(`${BASE_PATH}/google`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(payload),
+    skipAuth: true,
+  });
 }
 
 export async function refreshToken(
   refreshTokenValue: string
 ): Promise<AuthSuccessResponse> {
-  return postJson<AuthSuccessResponse>(`${BASE_URL}/refresh`, {
-    refreshToken: refreshTokenValue,
+  return apiFetchJson<AuthSuccessResponse>(`${BASE_PATH}/refresh`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ refreshToken: refreshTokenValue }),
+    skipAuth: true, // We handle refresh token explicitly
   });
 }
 
 export async function logout(refreshTokenValue: string): Promise<void> {
-  await postJson(`${BASE_URL}/logout`, { refreshToken: refreshTokenValue });
+  await apiFetchJson(`${BASE_PATH}/logout`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ refreshToken: refreshTokenValue }),
+    // Logout might need auth header if server requires it, but usually we just invalidate refresh token
+    // The original code didn't skip auth, but didn't explicitly add it either (except via global fetch which doesn't add it)
+    // But wait, original code used postJson which uses fetch. It did NOT add auth header.
+    // So skipAuth: true is probably safer or correct to match original behavior.
+    skipAuth: true, 
+  });
 }
 
 export async function me(token: string): Promise<AuthUser> {
-  const res = await fetch(`${BASE_URL}/me`, {
+  const data = await apiFetchJson<{ success: boolean; user: AuthUser }>(`${BASE_PATH}/me`, {
+    method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    // We provide token explicitly, so we can skip the store lookup to avoid confusion, 
+    // though it wouldn't hurt if store was empty.
+    skipAuth: true, 
   });
-  const data = await parseJson<{ success: boolean; user: AuthUser }>(res);
+  
   if (!data.success) {
     throw new Error("Failed to fetch user profile");
   }

@@ -124,21 +124,26 @@ export default function RootLayout() {
     router.push("/camera");
   };
 
+  const handleChatPress = () => {
+    router.push("/chat");
+  };
+
   // Hide header and bottom menu for camera, review screens, and splash screen
   const isCameraScreen = pathname === "/camera" || pathname === "/review";
   // Hide only bottom menu for guide screens
   const isGuideScreen = pathname === "/guide/species";
   // Hide bottom menu for profile-related screens
-  const isProfileScreen =
-    pathname === "/profile" ||
-    pathname === "/settings" ||
-    pathname === "/adventures";
+  const isProfileScreen = pathname === "/adventures";
+  // Hide bottom menu for chat room (but show for channel list)
+  const isChatRoom = pathname.startsWith("/chat/") && pathname !== "/chat";
+
   const isAuthenticated = status === AuthStatus.AUTHENTICATED;
   // const showHeader = !isCameraScreen && !showSplash && isAuthenticated; // Disabled - moved to BottomMenu
   const showBottomMenu =
     !isCameraScreen &&
     !isGuideScreen &&
     !isProfileScreen &&
+    !isChatRoom &&
     !showSplash &&
     isAuthenticated;
 
@@ -175,6 +180,7 @@ export default function RootLayout() {
             onHomePress={handleHomePress}
             onMapPress={handleMapPress}
             onFishPress={handleFishPress}
+            onChatPress={handleChatPress}
             currentScreen={pathname}
           />
         )}

@@ -2,7 +2,7 @@
 import { Platform } from "react-native";
 import { API_BASE } from "../../../config/api";
 import { DEFAULT_TIMEZONE } from "../../../config/time";
-import { JSON_HEADERS } from "../../../utils/apiClient";
+import { apiFetchJson } from "../../../utils/apiClient";
 import { GetForecastOpts, UnifiedForecast } from "./types";
 
 export async function getForecast(
@@ -26,10 +26,10 @@ export async function getForecast(
 
   if (opts.cache === false) params.set("cache", "false");
 
-  const url = `${API_BASE}${endpoint}?${params.toString()}`;
+  const path = `${endpoint}?${params.toString()}`;
+  const url = `${API_BASE}${path}`;
+  
   console.log("🌊 Fetching forecast from:", url);
-  console.log("🌊 Platform:", Platform.OS);
-  console.log("🌊 API_BASE:", API_BASE);
   if (date) {
     console.log("🌊 Date parameter:", date);
   }
@@ -46,73 +46,32 @@ export async function getForecast(
 
   try {
     console.log("🌊 Starting fetch request...");
-    console.log("🌊 Request options:", {
-      method: "GET",
-      signal: signal ? "AbortSignal present" : "No signal",
-      timeout: timeout + "ms",
-    });
-
-    console.log("🌊 Full URL:", url);
     const startTime = Date.now();
 
-    // Add more detailed error handling
-    const res = await fetch(url, {
+    // Use centralized apiFetchJson which handles:
+    // 1. Auth headers (if available)
+    // 2. Token refreshing (on 401)
+    // 3. ngrok-skip-browser-warning header
+    // 4. JSON parsing and error handling
+    const data = await apiFetchJson<UnifiedForecast>(path, {
       signal,
       method: "GET",
-      headers: {
-        Accept: "application/json",
-        ...JSON_HEADERS,
-        "User-Agent": "FishingApp/1.0.0",
-        "ngrok-skip-browser-warning": "true", // Bypass ngrok browser warning
-      },
-      // Add these options for better compatibility
-      mode: "cors",
-      cache: "no-cache",
+      // Pass timeout to fetch if supported, or rely on abort controller
     });
 
     const endTime = Date.now();
-
     console.log(
       "🌊 Fetch completed in",
       endTime - startTime,
-      "ms, status:",
-      res.status
+      "ms"
     );
 
-    // Διάβασε το body είτε είναι 200 είτε όχι για καλύτερο debug
-    const text = await res.text().catch((e) => {
-      console.log("🌊 Error reading response text:", e);
-      return "";
-    });
+    console.log("🌊 Forecast data received (keys):", Object.keys(data ?? {}));
 
-    console.log("🌊 Response status:", res.status, res.statusText);
-    console.log("🌊 Response text length:", text.length);
-
-    if (!res.ok) {
-      const snippet = text?.slice(0, 400) ?? "";
-      console.log("🌊 Forecast error payload:", snippet);
-      throw new Error(
-        `Forecast HTTP ${res.status} ${res.statusText} – ${snippet}`
-      );
-    }
-
-    // Αν είναι άδειο, πέτα λάθος
-    if (!text) {
-      throw new Error("Forecast: empty response body");
-    }
-
-    const json = JSON.parse(text);
-    console.log("🌊 Forecast data received (keys):", Object.keys(json ?? {}));
-
-    const { meta, current, sun, moon, hourly, rain } = json;
+    const { meta, current, sun, moon, hourly, rain } = data;
     return { meta, current, sun, moon, hourly, rain } as UnifiedForecast;
   } catch (error) {
     console.log("🌊 Fetch error:", error);
-    console.log("🌊 Error type:", typeof error);
-    console.log(
-      "🌊 Error name:",
-      error instanceof Error ? error.name : "Unknown"
-    );
     console.log(
       "🌊 Error message:",
       error instanceof Error ? error.message : String(error)
@@ -127,8 +86,6 @@ export async function getForecast(
         console.log(
           "🌊 Network request failed - check if server is running and accessible"
         );
-      } else if (error.message.includes("fetch")) {
-        console.log("🌊 Fetch API error - possible network or server issue");
       }
     }
 
