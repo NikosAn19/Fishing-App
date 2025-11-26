@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomMenu from "../src/components/layout/BottomMenu";
 import SplashScreen from "../src/components/common/SplashScreen";
 import { useAuth } from "../src/features/auth/hooks/useAuth";
-import { AuthStatus } from "../src/features/auth/types";
+import { AuthStatus } from "../src/features/auth/types/authTypes";
 import { useForecastCacheStore } from "../src/features/forecast/stores/forecastCacheStore";
 import { useFavoriteSpotsStore } from "../src/features/maps/stores/favoriteSpotsStore";
 import { colors } from "../src/theme/colors";
@@ -125,7 +125,7 @@ export default function RootLayout() {
   };
 
   const handleChatPress = () => {
-    router.push("/chat");
+    router.push("/community");
   };
 
   // Hide header and bottom menu for camera, review screens, and splash screen
@@ -135,7 +135,7 @@ export default function RootLayout() {
   // Hide bottom menu for profile-related screens
   const isProfileScreen = pathname === "/adventures";
   // Hide bottom menu for chat room (but show for channel list)
-  const isChatRoom = pathname.startsWith("/chat/") && pathname !== "/chat";
+  const isChatRoom = pathname.startsWith("/community/chat/") || pathname.startsWith("/community/direct-messages");
 
   const isAuthenticated = status === AuthStatus.AUTHENTICATED;
   // const showHeader = !isCameraScreen && !showSplash && isAuthenticated; // Disabled - moved to BottomMenu

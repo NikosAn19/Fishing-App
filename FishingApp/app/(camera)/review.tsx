@@ -15,7 +15,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../src/theme/colors";
-import { useCameraStore } from "../../src/stores/cameraStore";
+// TODO: cameraStore was deleted. Fish identification feature needs to be reimplemented.
+// import { useCameraStore } from "../../src/stores/cameraStore";
 import { useImageUpload } from "../../src/features/uploads/hooks/useUpload";
 import { API_BASE } from "../../src/config/api";
 
@@ -28,7 +29,7 @@ export default function ReviewScreen() {
 
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { startFishIdentification } = useCameraStore();
+  // const { startFishIdentification } = useCameraStore(); // TODO: Reimplement fish identification
   const { upload } = useImageUpload();
 
   const [fishType, setFishType] = useState(""); // local state name ok
@@ -38,14 +39,15 @@ export default function ReviewScreen() {
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // TODO: Reimplement fish identification without cameraStore
   const handleFishIdentification = async () => {
     if (!photoUri) return;
     setIsIdentifying(true);
     try {
-      await startFishIdentification(photoUri);
+      // await startFishIdentification(photoUri);
       Alert.alert(
         "Fish Identification",
-        "Fish identification completed! Check the results.",
+        "Fish identification feature is temporarily disabled.",
         [{ text: "OK" }]
       );
     } catch {

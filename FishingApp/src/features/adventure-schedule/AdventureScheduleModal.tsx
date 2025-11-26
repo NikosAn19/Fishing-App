@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
 import AdventureScheduleWizard from "./AdventureScheduleWizard";
-import { AdventureScheduleData } from "./types";
+import { AdventureScheduleData } from "./types/adventureScheduleTypes";
 import { Fish, X } from "lucide-react-native";
 import { glassStyle } from "./styles/glass";
 

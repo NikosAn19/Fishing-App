@@ -6,7 +6,7 @@ import {
   GetFavoriteSpotsResponse,
   CreateFavoriteSpotResponse,
   DeleteFavoriteSpotResponse,
-} from "./types";
+} from "../types/favoriteSpotsApiTypes";
 
 const BASE_URL = `${API_BASE}/api/favorite-spots`;
 

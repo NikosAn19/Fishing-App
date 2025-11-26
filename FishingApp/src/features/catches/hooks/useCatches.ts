@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { API_BASE } from "../../../config/api";
 import { JSON_HEADERS } from "../../../utils/apiClient";
-import { CatchItem, FishRecognitionResult } from "../types";
-import { useCatchesStore } from "../../../stores/catchesStore";
-import { shallow } from "zustand/shallow";
+import { CatchItem, FishRecognitionResult } from "../types/catchTypes";
 
 type UseCatchesOptions = {
   pageSize?: number;
@@ -19,38 +17,14 @@ export function useCatches({
   pageSize = 20,
   autoLoad = true,
 }: UseCatchesOptions = {}) {
-  const {
-    items,
-    total,
-    page,
-    loading,
-    fetchingMore,
-    refreshing,
-    error,
-    setLoading,
-    setFetchingMore,
-    setRefreshing,
-    setError,
-    setData,
-    removeCatch,
-  } = useCatchesStore(
-    (state) => ({
-      items: state.items,
-      total: state.total,
-      page: state.page,
-      loading: state.loading,
-      fetchingMore: state.fetchingMore,
-      refreshing: state.refreshing,
-      error: state.error,
-      setLoading: state.actions.setLoading,
-      setFetchingMore: state.actions.setFetchingMore,
-      setRefreshing: state.actions.setRefreshing,
-      setError: state.actions.setError,
-      setData: state.actions.setData,
-      removeCatch: state.actions.removeCatch,
-    }),
-    shallow
-  );
+  // Internal state management using React hooks
+  const [items, setItems] = useState<CatchItem[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [fetchingMore, setFetchingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canLoadMore = useMemo(() => {
     if (total == null) return false;
@@ -80,15 +54,28 @@ export function useCatches({
         const newTotal =
           json.total ?? (isFirstPage ? newItems.length : total ?? 0);
 
-        setData(newItems, newTotal, targetPage, replace);
+        // Update state based on replace flag
+        if (replace) {
+          setItems(newItems);
+        } else {
+          setItems((prev) => [...prev, ...newItems]);
+        }
+        setTotal(newTotal);
+        setPage(targetPage);
+        setLoading(false);
+        setFetchingMore(false);
+        setRefreshing(false);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Αποτυχία φόρτωσης";
         setError(message);
+        setLoading(false);
+        setFetchingMore(false);
+        setRefreshing(false);
         throw err;
       }
     },
-    [pageSize, total, setData, setError, setFetchingMore, setLoading]
+    [pageSize, total]
   );
 
   const loadInitial = useCallback(async () => {
@@ -98,7 +85,7 @@ export function useCatches({
   const refresh = useCallback(async () => {
     setRefreshing(true);
     await load(1, true);
-  }, [load, setRefreshing]);
+  }, [load]);
 
   const loadMore = useCallback(async () => {
     if (!canLoadMore || loading || fetchingMore) return;
@@ -110,7 +97,8 @@ export function useCatches({
     loadInitial().catch(() => {
       // error state handled inside load
     });
-  }, [autoLoad, loadInitial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoad]); // Only run on mount when autoLoad is true
 
   const recognizeFish = useCallback(async (photoUrl: string) => {
     const response = await fetch(`${API_BASE}/api/fish/recognize`, {
@@ -136,9 +124,11 @@ export function useCatches({
         throw new Error(`HTTP ${response.status}`);
       }
 
-      removeCatch(catchId);
+      // Remove from local state
+      setItems((prev) => prev.filter((item) => item.id !== catchId));
+      setTotal((prev) => (prev !== null ? prev - 1 : null));
     },
-    [removeCatch]
+    []
   );
 
   return {

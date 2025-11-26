@@ -4,7 +4,7 @@ import { Navigation, ArrowUp } from "lucide-react-native";
 import {
   UnifiedForecast,
   WeatherCondition,
-} from "../../../features/forecast/api/types";
+} from "../../../features/forecast/types/forecastApiTypes";
 import { computeForecastScore } from "../../../features/forecast/utils/forecastMetrics";
 import { DEFAULT_TIMEZONE } from "../../../config/time";
 import { colors } from "../../../theme/colors";

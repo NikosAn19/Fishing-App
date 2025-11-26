@@ -5,7 +5,7 @@ import {
   LoginRequest,
   GoogleLoginRequest,
   AuthUser,
-} from "../types";
+} from "../types/authTypes";
 
 const BASE_PATH = "/api/auth";
 

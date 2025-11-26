@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { UnifiedForecast } from "../api/types";
+import { UnifiedForecast } from "../types/forecastApiTypes";
 import { getForecast } from "../api/client";
 import { DEFAULT_TIMEZONE } from "../../../config/time";
 import {
@@ -7,7 +7,7 @@ import {
   ForecastCacheActions,
   ForecastCacheStore,
   ForecastCacheEntry,
-} from "./types";
+} from "../types/forecastCacheStoreTypes";
 import {
   formatWindSpeed,
   formatWave,

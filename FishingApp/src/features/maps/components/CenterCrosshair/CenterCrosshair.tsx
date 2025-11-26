@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Plus } from "lucide-react-native";
 import { colors } from "../../../../theme/colors";
-import { CenterCrosshairProps } from "./types";
+import { CenterCrosshairProps } from "../../types/centerCrosshairTypes";
 
 export default function CenterCrosshair({
   visible = true,

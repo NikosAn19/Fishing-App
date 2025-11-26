@@ -8,7 +8,7 @@ import {
   CreateAdventureRequest,
   UpdateAdventureRequest,
 } from "../types/adventure";
-import { UseAdventuresOptions } from "./types";
+import { UseAdventuresOptions } from "../types/useAdventuresTypes";
 
 export function useAdventures({
   autoLoad = true,

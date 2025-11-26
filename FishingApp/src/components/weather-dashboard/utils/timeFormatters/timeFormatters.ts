@@ -1,5 +1,5 @@
 import { DEFAULT_TIMEZONE } from "../../../../config/time";
-import { UnifiedForecast } from "../../../../features/forecast/api/types";
+import { UnifiedForecast } from "../../../../features/forecast/types/forecastApiTypes";
 import { DaySelectorDaysResult } from "./types";
 
 /**

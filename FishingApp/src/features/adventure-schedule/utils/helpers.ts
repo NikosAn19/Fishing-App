@@ -1,5 +1,5 @@
 import { colors } from "../../../theme/colors";
-import { QuickDateStatus } from "./types";
+import { QuickDateStatus } from "../types/quickDateTypes";
 
 export function normalizeDate(date: Date): Date {
   const normalized = new Date(date);

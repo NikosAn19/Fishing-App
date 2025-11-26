@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useAuthStore } from "../stores/authStore";
-import { AuthStatus } from "../types";
+import { AuthStatus } from "../types/authTypes";
 
 export function useAuth() {
   const status = useAuthStore((s) => s.status);

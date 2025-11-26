@@ -3,14 +3,14 @@ import {
   FavoriteSpotsState,
   FavoriteSpotsActions,
   FavoriteSpotsStore,
-} from "./types";
+} from "../types/favoriteSpotsStoreTypes";
 import { FavoriteSpot } from "../types/maps";
 import {
   getFavoriteSpots,
   addFavoriteSpot,
   deleteFavoriteSpot,
 } from "../api/client";
-import { FavoriteSpot as ApiFavoriteSpot } from "../api/types";
+import { FavoriteSpot as ApiFavoriteSpot } from "../types/favoriteSpotsApiTypes";
 
 const COORDINATE_TOLERANCE = 0.0001; // ~11 meters
 

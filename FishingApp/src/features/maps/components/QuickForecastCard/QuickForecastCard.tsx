@@ -12,13 +12,13 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X, ExternalLink, Star, Trash2 } from "lucide-react-native";
 import { colors } from "../../../../theme/colors";
-import { QuickForecastCardProps } from "./types";
+import { QuickForecastCardProps } from "../../../../features/maps/types/quickForecastCardTypes";
 import { useForecast } from "../../../../features/forecast/hooks/useForecast";
 import { computeForecastScore } from "../../../../features/forecast/utils/forecastMetrics";
 import WeatherDashboardCircularGauge from "../../../../components/weather-dashboard/components/WeatherDashboardCircularGauge/WeatherDashboardCircularGauge";
 import { useReverseGeocode } from "../../../../features/location/hooks/useReverseGeocode";
 import { useFavoriteSpots } from "../../hooks/useFavoriteSpots";
-import { WeatherCondition } from "../../../../features/forecast/api/types";
+import { WeatherCondition } from "../../../../features/forecast/types/forecastApiTypes";
 import { getMainIcon } from "../../../../components/weather-dashboard/utils/weatherDashboardIcons/weatherDashboardIcons";
 import { getWeatherConditionInGreek } from "../../../../components/weather-dashboard/utils/weatherTranslations/weatherTranslations";
 import { mapWeatherConditionToIconKey } from "../../../../components/weather-dashboard/mappers/toWeatherDashboard";

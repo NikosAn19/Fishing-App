@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Adventure, AdventureStatus } from "../types/adventure";
-import { AdventuresActions, AdventuresState, AdventuresStore } from "./types";
+import { AdventuresState, AdventuresStore } from "../types/adventuresStoreTypes";
 
 const initialState: AdventuresState = {
   adventures: [],

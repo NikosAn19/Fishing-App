@@ -2,7 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useFavoriteSpotsStore } from "../stores/favoriteSpotsStore";
 import { useShallow } from "zustand/react/shallow";
 import { FavoriteSpot } from "../types/maps";
-import { CreateFavoriteSpotRequest } from "../api/types";
+import { CreateFavoriteSpotRequest } from "../types/favoriteSpotsApiTypes";
 
 export interface UseFavoriteSpotsOptions {
   autoLoad?: boolean;

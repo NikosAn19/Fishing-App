@@ -9,7 +9,7 @@ import {
   PressureTrend,
   PRESSURE_TREND_DESCRIPTIONS,
 } from "../../constants/weatherDescriptions";
-import { UnifiedForecast } from "../../../../features/forecast/api/types";
+import { UnifiedForecast } from "../../../../features/forecast/types/forecastApiTypes";
 import {
   BeaufortResult,
   WindStatusResult,

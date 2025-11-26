@@ -4,7 +4,7 @@ import {
   GetProfileResponse,
   UpdateProfileRequest,
   UpdateProfileResponse,
-} from "./types";
+} from "../types/profileApiTypes";
 
 const BASE_URL = `${API_BASE}/api/users`;
 

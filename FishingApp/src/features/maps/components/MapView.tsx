@@ -4,6 +4,10 @@ import MapView, { Marker, Region, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocationStore } from "../../location/stores/locationStore";
 import { MapViewProps, MapTypeEnum, FavoriteSpot } from "../types/maps";
+import { useResizedImage } from "../hooks/useResizedImage";
+
+// Import custom marker image
+const markerImageSource = require("../../../../assets/images/custom-marker-removebg-preview.png");
 
 export default function FishingMapView({
   onMapPress,
@@ -20,6 +24,9 @@ export default function FishingMapView({
   const mapRef = useRef<MapView | null>(null);
   const hasAnimatedToInitialRegionRef = useRef(false);
   const previousInitialRegionRef = useRef<string | null>(null);
+
+  // Resize marker image to 100px width
+  const resizedMarkerImage = useResizedImage(markerImageSource, 150);
 
   const {
     currentLocation,
@@ -242,9 +249,6 @@ export default function FishingMapView({
                 latitude: spot.latitude,
                 longitude: spot.longitude,
               }}
-              title={spot.name}
-              description={spot.address || spot.description || "Favorite spot"}
-              pinColor="#fbbf24"
               onPress={() => {
                 if (onMarkerPress) {
                   onMarkerPress({
@@ -259,6 +263,9 @@ export default function FishingMapView({
                   });
                 }
               }}
+              image={resizedMarkerImage || markerImageSource}
+              anchor={{ x: 0.5, y: 1 }}
+              style={{ width: 100, height: 100 }}
             />
           ))}
         </MapView>
@@ -309,9 +316,6 @@ export default function FishingMapView({
                 latitude: spot.latitude,
                 longitude: spot.longitude,
               }}
-              title={spot.name}
-              description={spot.address || spot.description || "Favorite spot"}
-              pinColor="#fbbf24"
               onPress={() => {
                 if (onMarkerPress) {
                   onMarkerPress({
@@ -326,6 +330,9 @@ export default function FishingMapView({
                   });
                 }
               }}
+              image={resizedMarkerImage || markerImageSource}
+              anchor={{ x: 0.5, y: 1 }}
+              style={{ width: 100, height: 100 }}
             />
           ))}
         </MapView>

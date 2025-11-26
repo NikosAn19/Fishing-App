@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
-import { SelectButtonProps } from "./types";
+import { SelectButtonProps } from "../../types/selectButtonTypes";
 
 export default function SelectButton({
   onPress,

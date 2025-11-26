@@ -13,7 +13,7 @@ import Step4Forecast from "./steps/Step4Forecast";
 // Import header components
 import ProgressBullets from "./components/ProgressBullets";
 import { ADVENTURE_SCHEDULE_STEPS, AdventureScheduleStep } from "./constants";
-import { AdventureScheduleData, AdventureScheduleWizardProps } from "./types";
+import { AdventureScheduleData, AdventureScheduleWizardProps } from "./types/adventureScheduleTypes";
 
 export default function AdventureScheduleWizard({
   onClose,

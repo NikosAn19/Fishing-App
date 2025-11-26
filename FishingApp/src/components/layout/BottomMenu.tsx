@@ -105,19 +105,19 @@ export default function BottomMenu({
           disabled={!onChatPress}
         >
           <Ionicons
-            name="chatbubbles"
+            name="people"
             size={24}
-            color={currentScreen?.startsWith("/chat") ? colors.accent : colors.white}
+            color={currentScreen?.startsWith("/community") ? colors.accent : colors.white}
           />
           <Text
             style={[
               styles.buttonText,
               {
-                color: currentScreen?.startsWith("/chat") ? colors.accent : colors.white,
+                color: currentScreen?.startsWith("/community") ? colors.accent : colors.white,
               },
             ]}
           >
-            Chat
+            Community
           </Text>
         </TouchableOpacity>
 

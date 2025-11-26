@@ -8,9 +8,9 @@ import {
   GoogleLoginRequest,
   LoginRequest,
   RegisterRequest,
-} from "../types";
+} from "../types/authTypes";
 import { authApi } from "../api/client";
-import { AuthActions, AuthState, AuthStore, TokenPair } from "./types";
+import { AuthActions, AuthState, AuthStore, TokenPair } from "../types/authStoreTypes";
 
 const ACCESS_TOKEN_KEY = "auth_access_token";
 const REFRESH_TOKEN_KEY = "auth_refresh_token";

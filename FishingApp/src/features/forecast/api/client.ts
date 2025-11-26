@@ -3,7 +3,7 @@ import { Platform } from "react-native";
 import { API_BASE } from "../../../config/api";
 import { DEFAULT_TIMEZONE } from "../../../config/time";
 import { apiFetchJson } from "../../../utils/apiClient";
-import { GetForecastOpts, UnifiedForecast } from "./types";
+import { GetForecastOpts, UnifiedForecast } from "../types/forecastApiTypes";
 
 export async function getForecast(
   lat: number,

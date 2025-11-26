@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_TIMEZONE } from "../../../config/time";
-import { UnifiedForecast } from "../api/types";
-import { UseForecastOptions } from "./types";
+import { UnifiedForecast } from "../types/forecastApiTypes";
+import { UseForecastOptions } from "../types/useForecastTypes";
 import { useForecastCacheStore } from "../stores/forecastCacheStore";
 
 export function useForecast(

@@ -13,7 +13,7 @@ import { useRouter } from "expo-router";
 import * as Google from "expo-auth-session/providers/google";
 import { colors } from "../../../theme/colors";
 import { useAuth } from "../hooks/useAuth";
-import { AuthStatus } from "../types";
+import { AuthStatus } from "../types/authTypes";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
