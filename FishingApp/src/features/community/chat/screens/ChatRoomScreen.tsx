@@ -14,7 +14,7 @@ import { MOCK_MESSAGES, MOCK_CHANNELS, MOCK_DIRECT_MESSAGES } from "../data/mock
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
 import { Message, DirectMessage } from "../types/chatTypes";
-import { BackButton } from "../../../../components/common/BackButton";
+import { BackButton } from "../../../../generic/common/BackButton";
 
 export default function ChatRoomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();

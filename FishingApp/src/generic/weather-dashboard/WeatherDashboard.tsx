@@ -23,7 +23,7 @@ import WeatherDashboardHourlyForecast from "./components/WeatherDashboardHourlyF
 import WeatherDashboardStatsGrid from "./components/WeatherDashboardStatsGrid/WeatherDashboardStatsGrid";
 import WeatherDashboardSunriseSunset from "./components/WeatherDashboardSunriseSunset/WeatherDashboardSunriseSunset";
 import MapNavPopup from "./components/MapNavPopup/MapNavPopup";
-import ErrorState from "../../components/common/ErrorState";
+import ErrorState from "../../generic/common/ErrorState";
 
 // Hooks
 import { useCurrentLocation } from "../../features/location/hooks/useCurrentLocation";

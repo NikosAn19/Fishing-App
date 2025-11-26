@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from "react
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
-import { BackButton } from "../../../../components/common/BackButton";
+import { BackButton } from "../../../../generic/common/BackButton";
 import { MOCK_DIRECT_MESSAGES } from "../data/mockData";
 import { DirectMessage } from "../types/chatTypes";
 

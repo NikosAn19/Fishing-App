@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View } from "react-native";
-import WeatherDashboard from "../../src/components/weather-dashboard/WeatherDashboard";
+import WeatherDashboard from "../../src/generic/weather-dashboard/WeatherDashboard";
 import AdventureScheduleModal from "../../src/features/adventure-schedule/AdventureScheduleModal";
 
 export default function HomeScreen() {

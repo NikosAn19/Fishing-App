@@ -4,9 +4,9 @@ import { View, StyleSheet } from "react-native";
 import { useState, useEffect, useRef } from "react";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-// import GlobalHeader from "../src/components/layout/GlobalHeader"; // Disabled - moved to BottomMenu
-import BottomMenu from "../src/components/layout/BottomMenu";
-import SplashScreen from "../src/components/common/SplashScreen";
+// import GlobalHeader from "../src/generic/layout/GlobalHeader"; // Disabled - moved to BottomMenu
+import BottomMenu from "../src/generic/layout/BottomMenu";
+import SplashScreen from "../src/generic/common/SplashScreen";
 import { useAuth } from "../src/features/auth/hooks/useAuth";
 import { AuthStatus } from "../src/features/auth/types/authTypes";
 import { useForecastCacheStore } from "../src/features/forecast/stores/forecastCacheStore";

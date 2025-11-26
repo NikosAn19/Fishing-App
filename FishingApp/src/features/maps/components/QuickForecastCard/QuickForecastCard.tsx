@@ -15,17 +15,17 @@ import { colors } from "../../../../theme/colors";
 import { QuickForecastCardProps } from "../../../../features/maps/types/quickForecastCardTypes";
 import { useForecast } from "../../../../features/forecast/hooks/useForecast";
 import { computeForecastScore } from "../../../../features/forecast/utils/forecastMetrics";
-import WeatherDashboardCircularGauge from "../../../../components/weather-dashboard/components/WeatherDashboardCircularGauge/WeatherDashboardCircularGauge";
+import WeatherDashboardCircularGauge from "../../../../generic/weather-dashboard/components/WeatherDashboardCircularGauge/WeatherDashboardCircularGauge";
 import { useReverseGeocode } from "../../../../features/location/hooks/useReverseGeocode";
 import { useFavoriteSpots } from "../../hooks/useFavoriteSpots";
 import { WeatherCondition } from "../../../../features/forecast/types/forecastApiTypes";
-import { getMainIcon } from "../../../../components/weather-dashboard/utils/weatherDashboardIcons/weatherDashboardIcons";
-import { getWeatherConditionInGreek } from "../../../../components/weather-dashboard/utils/weatherTranslations/weatherTranslations";
-import { mapWeatherConditionToIconKey } from "../../../../components/weather-dashboard/mappers/toWeatherDashboard";
-import WeatherDashboardStatCard from "../../../../components/weather-dashboard/components/WeatherDashboardStatCard/WeatherDashboardStatCard";
+import { getMainIcon } from "../../../../generic/weather-dashboard/utils/weatherDashboardIcons/weatherDashboardIcons";
+import { getWeatherConditionInGreek } from "../../../../generic/weather-dashboard/utils/weatherTranslations/weatherTranslations";
+import { mapWeatherConditionToIconKey } from "../../../../generic/weather-dashboard/mappers/toWeatherDashboard";
+import WeatherDashboardStatCard from "../../../../generic/weather-dashboard/components/WeatherDashboardStatCard/WeatherDashboardStatCard";
 import { Wind, Thermometer, Navigation } from "lucide-react-native";
-import { calculateBeaufort } from "../../../../components/weather-dashboard/utils/weatherCalculations/weatherCalculations";
-import { safeText } from "../../../../components/weather-dashboard/utils/textUtils/textUtils";
+import { calculateBeaufort } from "../../../../generic/weather-dashboard/utils/weatherCalculations/weatherCalculations";
+import { safeText } from "../../../../generic/weather-dashboard/utils/textUtils/textUtils";
 
 export default function QuickForecastCard({
   coordinates,
