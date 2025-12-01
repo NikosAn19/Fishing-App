@@ -24,6 +24,8 @@ import forecastRoutes from "./routes/forecast";
 import uploadsRoutes from "./routes/uploads";
 import adventureRoutes from "./routes/adventures";
 import favoriteSpotsRoutes from "./routes/favoriteSpots";
+import chatRoutes from "./routes/chatRoutes";
+import { seedChannels } from "./scripts/seedChannels";
 
 const app = express();
 
@@ -178,6 +180,7 @@ app.use("/api/forecast", forecastRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/adventures", adventureRoutes);
 app.use("/api/favorite-spots", favoriteSpotsRoutes);
+app.use("/api/chat", chatRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {
@@ -212,21 +215,9 @@ app.listen(PORT, HOST, () => {
     `🌊 Server also accessible via: http://10.120.42.28:${PORT} (mobile hotspot)`
   );
   console.log(`🌊 Environment: ${process.env.NODE_ENV || "development"}`);
-  console.log(
-    `🗃️  Database: ${
-      process.env.MONGODB_URI || "mongodb://localhost:27017/fishing-app"
-    }`
-  );
-  // Helpful logs for R2 config
-  if (process.env.STORAGE_PROVIDER === "r2") {
-    console.log("☁️  R2 endpoint:", process.env.R2_ENDPOINT);
-    console.log("🪣 R2 bucket:", process.env.S3_BUCKET);
-  }
-
-  // Test connectivity
-  console.log(`🔍 Testing server connectivity...`);
-  console.log(`🔍 Local: curl http://localhost:${PORT}/health`);
-  console.log(`🔍 Network: curl http://192.168.2.2:${PORT}/health`);
+  
+  // Seed channels on startup
+  seedChannels();
 });
 
 export default app;

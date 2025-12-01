@@ -25,7 +25,7 @@ import {
 import { useReverseGeocode } from "../../location/hooks/useReverseGeocode";
 import { useForecast } from "../../forecast/hooks/useForecast";
 import { ForecastMetric, FORECAST_METRICS } from "../../forecast/constants";
-import ForecastScoreCard from "../../../components/ForecastScoreCard";
+import ForecastScoreCard from "../../../generic/ForecastScoreCard";
 import {
   computeForecastScore,
   extractBestTimeSlots,

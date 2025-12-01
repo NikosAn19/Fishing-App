@@ -10,6 +10,12 @@ export interface UserDoc extends Document {
   refreshTokens: string[];
   createdAt: Date;
   updatedAt: Date;
+  matrix?: {
+    userId: string;
+    password?: string; // Encrypted or plain for MVP
+    deviceId?: string;
+    isSynced: boolean;
+  };
 }
 
 const UserSchema = new Schema<UserDoc>(
@@ -41,6 +47,12 @@ const UserSchema = new Schema<UserDoc>(
     refreshTokens: {
       type: [String],
       default: [],
+    },
+    matrix: {
+      userId: { type: String },
+      password: { type: String },
+      deviceId: { type: String },
+      isSynced: { type: Boolean, default: false },
     },
   },
   {

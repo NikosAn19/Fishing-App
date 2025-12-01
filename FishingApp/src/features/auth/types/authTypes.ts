@@ -21,6 +21,12 @@ export interface AuthUser {
   };
   createdAt?: string;
   updatedAt?: string;
+  matrix?: {
+    userId: string;
+    password?: string;
+    deviceId?: string;
+    isSynced: boolean;
+  };
 }
 
 export interface AuthSuccessResponse {

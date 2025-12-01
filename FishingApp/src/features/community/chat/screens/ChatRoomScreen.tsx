@@ -10,38 +10,149 @@ import {
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
-import { MOCK_MESSAGES, MOCK_CHANNELS, MOCK_DIRECT_MESSAGES } from "../data/mockData";
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
 import { Message, DirectMessage } from "../types/chatTypes";
 import { BackButton } from "../../../../generic/common/BackButton";
 
+import { matrixService } from "../matrix/MatrixService";
+import { chatApi } from "../matrix/api/client";
+import { useAuthStore } from "../../../auth/stores/authStore";
+
 export default function ChatRoomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
+  const [matrixStatus, setMatrixStatus] = useState('Αποσυνδεδεμένος');
+  const [roomId, setRoomId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initChat = async () => {
+      // Check if client is ready (login handled by authStore)
+      if (matrixService.auth.isClientReady()) {
+        setMatrixStatus('Συνδέθηκε στο Matrix!');
+        
+        // Check if channelId is already a Matrix Room ID (starts with !)
+        if (channelId?.startsWith('!')) {
+            console.log('✅ Opening existing room:', channelId);
+            // Ensure we join the room (idempotent if already joined)
+            await matrixService.rooms.joinRoom(channelId);
+            setRoomId(channelId);
+        }
+        // Check if it's an Alias (starts with #) - Join Public Room
+        else if (channelId?.startsWith('#')) {
+             console.log('🔄 Joining public room:', channelId);
+             let room = await matrixService.rooms.joinRoom(channelId);
+             
+             if (!room) {
+                 console.log('⚠️ Room not found, attempting to create:', channelId);
+                 // Extract alias localpart (e.g. #alias:server -> alias)
+                 const aliasLocalpart = channelId.split(':')[0].substring(1);
+                 const roomId = await matrixService.rooms.createRoom(aliasLocalpart, false, aliasLocalpart);
+                 if (roomId) {
+                     console.log('✅ Created public room:', roomId);
+                     setRoomId(roomId);
+                     return; // Created and set, we are done
+                 }
+             }
+
+             if (room) {
+                 console.log('✅ Joined room:', room.roomId);
+                 setRoomId(room.roomId);
+             } else {
+                 console.error('❌ Failed to join or create room:', channelId);
+                 setMatrixStatus('Failed to join room');
+             }
+        } 
+        // Otherwise, treat it as a User ID to start a DM
+        else if (channelId) {
+            const newRoomId = await chatApi.startDirectChat(channelId);
+            if (newRoomId) {
+                console.log('✅ Room Ready:', newRoomId);
+                setRoomId(newRoomId);
+            } else {
+                console.error('❌ Failed to get room from backend');
+            }
+        }
+      } else {
+        setMatrixStatus('Δεν υπάρχει σύνδεση στο Matrix');
+      }
+    };
+
+    initChat();
+  }, [channelId]);
+  useEffect(() => {
+    if (roomId) {
+      // 1. Load initial history
+      const initialMessages = matrixService.events.getRoomMessages(roomId);
+      setMessages(initialMessages);
+
+      // 2. Subscribe to new messages
+      const unsubscribe = matrixService.events.subscribeToRoom(roomId, (newMessage) => {
+        setMessages((prev) => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === newMessage.id)) return prev;
+          return [...prev, newMessage];
+        });
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [roomId]);
+
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]); // Start empty, load from Matrix
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
 
-  // Find channel or DM name for header
-  const channel = MOCK_CHANNELS.flatMap((g) => g.channels).find(
-    (c) => c.id === channelId
-  );
-  
-  const dm = MOCK_DIRECT_MESSAGES.find((d: DirectMessage) => d.id === channelId);
+  const [roomName, setRoomName] = useState<string>("Chat");
 
-  const title = channel ? `# ${channel.name}` : dm ? dm.user.name : "Chat";
+  useEffect(() => {
+    if (roomId) {
+      const room = matrixService.rooms.getRoom(roomId);
+      if (room) {
+        setRoomName(room.name || "Chat");
+      }
+    } else if (channelId) {
+        // Fallback for initial display
+        if (channelId.startsWith('#')) {
+            setRoomName(channelId.split(':')[0]);
+        }
+    }
+  }, [roomId, channelId]);
 
-  const handleSend = (text: string) => {
+  const title = roomName;
+
+  const handleSend = async (text: string) => {
+    // Optimistic update
+    const tempId = `local-${Date.now()}`;
+    const currentUser = useAuthStore.getState().user;
+    
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: tempId,
       text: text,
-      senderId: "current-user",
-      senderName: "Εγώ",
+      senderId: matrixService.auth.getUserId() || "current-user",
+      senderName: currentUser?.displayName || "Εγώ",
+      senderAvatar: currentUser?.avatarUrl || undefined,
       timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, newMessage]);
+
+    // Send to Matrix
+    if (roomId) {
+        try {
+            await matrixService.events.sendMessage(roomId, text);
+            console.log('✅ Message sent to Matrix');
+            // The subscription will handle the "sent" confirmation event 
+            // which might replace this optimistic one if IDs match or we handle it
+        } catch (e) {
+            console.error('❌ Failed to send to Matrix:', e);
+            // Optionally mark message as failed in UI
+        }
+    } else {
+        console.warn('⚠️ No Matrix Room ID, message locally only');
+    }
 
     // Scroll to bottom after sending
     setTimeout(() => {
@@ -75,7 +186,10 @@ export default function ChatRoomScreen() {
         behavior="padding"
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <FlatList
+        <View style={{ padding: 10, backgroundColor: colors.secondaryBg, alignItems: 'center' }}>
+        <Text style={{ color: colors.textPrimary }}>Matrix: {matrixStatus}</Text>
+      </View>
+      <FlatList
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}

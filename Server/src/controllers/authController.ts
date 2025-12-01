@@ -10,6 +10,10 @@ import {
 import { comparePassword, hashPassword } from "../utils/password";
 import { verifyGoogleIdToken } from "../utils/googleAuth";
 import { TokenPayload } from "../utils/authTokens";
+import { MatrixUserService } from "../services/matrix/MatrixUserService";
+import crypto from "crypto";
+
+const matrixUserService = new MatrixUserService();
 
 const MAX_REFRESH_TOKENS = 5;
 
@@ -25,6 +29,12 @@ function sanitizeUser(user: UserDoc) {
     },
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    matrix: user.matrix ? {
+      userId: user.matrix.userId,
+      password: user.matrix.password, // In production, consider sending a short-lived token instead
+      deviceId: user.matrix.deviceId,
+      isSynced: user.matrix.isSynced,
+    } : undefined,
   };
 }
 
@@ -87,6 +97,29 @@ export async function register(
       passwordHash,
       displayName,
     });
+
+    // Create Matrix User
+    try {
+      // Generate a random password for the Matrix account
+      const matrixPassword = crypto.randomBytes(16).toString("hex");
+      // Sanitize username for Matrix (lowercase, alphanumeric only)
+      const matrixUsername = ((user.email || "user").split("@")[0] || "user").replace(/[^a-z0-9]/g, "") + "_" + crypto.randomBytes(4).toString("hex");
+
+      const matrixUserId = await matrixUserService.createMatrixUser(matrixUsername, matrixPassword);
+
+      if (matrixUserId) {
+        user.matrix = {
+          userId: matrixUserId,
+          password: matrixPassword,
+          isSynced: true,
+        };
+        await user.save();
+      }
+    } catch (matrixError) {
+      console.error("Failed to create Matrix user during registration:", matrixError);
+      // We don't fail the whole registration, just log it. 
+      // A background job should retry this later.
+    }
 
     const tokens = issueTokens(user);
     await storeRefreshToken(user, tokens.refreshToken);
@@ -164,6 +197,25 @@ export async function googleLogin(
         displayName: name,
         avatarUrl: picture,
       });
+
+      // Create Matrix User for Google Login
+      try {
+        const matrixPassword = crypto.randomBytes(16).toString("hex");
+        const matrixUsername = (email.split("@")[0] || "user").replace(/[^a-z0-9]/g, "") + "_" + crypto.randomBytes(4).toString("hex");
+
+        const matrixUserId = await matrixUserService.createMatrixUser(matrixUsername, matrixPassword);
+
+        if (matrixUserId) {
+          user.matrix = {
+            userId: matrixUserId,
+            password: matrixPassword,
+            isSynced: true,
+          };
+          await user.save();
+        }
+      } catch (matrixError) {
+        console.error("Failed to create Matrix user during Google registration:", matrixError);
+      }
     } else {
       user.googleId = googleId;
       if (!user.displayName && name) {

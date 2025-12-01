@@ -14,6 +14,8 @@ export interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   refreshToken: string | null;
+  matrixAccessToken: string | null;
+  matrixDeviceId: string | null;
   error: string | null;
   isLoading: boolean;
 }

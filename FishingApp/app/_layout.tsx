@@ -1,3 +1,8 @@
+import "../src/polyfills";
+import "react-native-get-random-values";
+import { Buffer } from "buffer";
+global.Buffer = Buffer;
+
 import { Stack, useRouter, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, StyleSheet } from "react-native";

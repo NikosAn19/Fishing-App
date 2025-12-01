@@ -1,37 +1,67 @@
 import React from "react";
-import { View, Text, StyleSheet, SectionList, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
-import { MOCK_CHANNELS } from "./chat/data/mockData";
-import ChannelItem from "./chat/components/ChannelItem";
-import { Channel } from "./chat/types/chatTypes";
 import StoriesRow from "./stories/components/StoriesRow";
 import { MOCK_STORIES } from "./stories/data/mockData";
-import DirectMessagesButton from "./chat/components/DirectMessagesButton";
+import RoomList from "./chat/components/RoomList";
+import { chatApi, PublicChannel } from "./chat/matrix/api/client";
+import RegionAccordion from "./chat/components/RegionAccordion";
 
 export default function CommunityHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [publicChannels, setPublicChannels] = React.useState<PublicChannel[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const handleChannelPress = (channel: Channel) => {
-    router.push(`/community/chat/${channel.id}`);
+  React.useEffect(() => {
+    loadChannels();
+  }, []);
+
+  const loadChannels = async () => {
+    try {
+      const channels = await chatApi.getPublicChannels();
+      setPublicChannels(channels);
+    } catch (error) {
+      console.error("Failed to load public channels:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChannelPress = (roomId: string) => {
+    router.push(`/community/chat/${encodeURIComponent(roomId)}`);
   };
 
   const handleStoryPress = (userId: string) => {
-    // Navigate to story viewer
     router.push(`/community/stories/${userId}`);
   };
 
   const handleDirectMessagesPress = () => {
-    // Navigate to direct messages screen
     router.push("/community/direct-messages"); 
   };
 
-  const sections = MOCK_CHANNELS.map((group) => ({
-    title: group.region,
-    data: group.channels,
-  }));
+  // Group channels by region
+  const groupedChannels = React.useMemo(() => {
+    const groups: { [key: string]: PublicChannel[] } = {};
+    
+    publicChannels.forEach(channel => {
+      // Parse "Region - Technique"
+      const parts = channel.name.split(' - ');
+      const regionName = parts.length > 1 ? parts[0] : 'General';
+      
+      if (!groups[regionName]) {
+        groups[regionName] = [];
+      }
+      groups[regionName].push(channel);
+    });
+
+    return Object.entries(groups).map(([regionName, channels]) => ({
+      regionName,
+      channels
+    }));
+  }, [publicChannels]);
 
   return (
     <View style={styles.container}>
@@ -41,28 +71,27 @@ export default function CommunityHomeScreen() {
         <StoriesRow stories={MOCK_STORIES} onStoryPress={handleStoryPress} />
       </View>
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ChannelItem channel={item} onPress={handleChannelPress} />
-        )}
-        renderSectionHeader={({ section: { title } }) => (
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{title.toUpperCase()}</Text>
-          </View>
-        )}
-        ListHeaderComponent={
-          <View style={styles.dmContainer}>
-            <DirectMessagesButton onPress={handleDirectMessagesPress} unreadCount={3} />
-          </View>
-        }
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: 120 } // Increased padding for clear display above bottom menu
-        ]}
-        stickySectionHeadersEnabled={false}
-      />
+      <ScrollView 
+        contentContainerStyle={[styles.listContent, { paddingBottom: 120 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.dmContainer}>
+          <Text style={[styles.sectionTitle, { paddingHorizontal: 16, marginBottom: 8 }]}>DIRECT MESSAGES</Text>
+          <RoomList filter="direct" />
+        </View>
+
+        <View style={styles.regionsContainer}>
+          <Text style={[styles.sectionTitle, { paddingHorizontal: 16, marginBottom: 8, marginTop: 24 }]}>REGIONS</Text>
+          {groupedChannels.map((group) => (
+            <RegionAccordion 
+              key={group.regionName}
+              regionName={group.regionName}
+              channels={group.channels}
+              onChannelPress={handleChannelPress}
+            />
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -90,4 +119,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     letterSpacing: 1,
   },
+  regionsContainer: {
+    paddingHorizontal: 16,
+  }
 });

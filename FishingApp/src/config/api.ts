@@ -7,7 +7,7 @@ import Constants from "expo-constants";
  * Current development machine IP address
  * Update this if your IP changes
  */
-const DEV_MACHINE_IP = "192.168.2.2";
+export const DEV_MACHINE_IP = "192.168.2.4";
 const DEV_PORT = 3000;
 
 /**

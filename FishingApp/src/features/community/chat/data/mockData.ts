@@ -44,7 +44,7 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
     region: "Μακεδονία",
     channels: [
       {
-        id: "mac-spinning",
+        id: "#mac-spinning:localhost",
         name: "Spinning",
         region: "Μακεδονία",
         category: "Spinning",
@@ -55,7 +55,7 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
         },
       },
       {
-        id: "mac-casting",
+        id: "#mac-casting:localhost",
         name: "Casting",
         region: "Μακεδονία",
         category: "Casting",
@@ -65,7 +65,7 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
         },
       },
       {
-        id: "mac-eging",
+        id: "#mac-eging:localhost",
         name: "Eging",
         region: "Μακεδονία",
         category: "Eging",
@@ -76,7 +76,7 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
     region: "Αττική",
     channels: [
       {
-        id: "att-spinning",
+        id: "#att-spinning:localhost",
         name: "Spinning",
         region: "Αττική",
         category: "Spinning",
@@ -87,13 +87,13 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
         },
       },
       {
-        id: "att-lrf",
+        id: "#att-lrf:localhost",
         name: "LRF",
         region: "Αττική",
         category: "LRF",
       },
       {
-        id: "att-shore",
+        id: "#att-shore:localhost",
         name: "Shore Jigging",
         region: "Αττική",
         category: "Shore Jigging",
@@ -108,7 +108,7 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
     region: "Κρήτη",
     channels: [
       {
-        id: "crt-general",
+        id: "#crt-general:localhost",
         name: "Γενική Συζήτηση",
         region: "Κρήτη",
         category: "General",
