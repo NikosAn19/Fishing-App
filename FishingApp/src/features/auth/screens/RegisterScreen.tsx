@@ -8,6 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as Google from "expo-auth-session/providers/google";
@@ -96,119 +97,124 @@ export function RegisterScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <LinearGradient
-        colors={["rgba(18, 219, 192, 0.7)", "transparent"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0.6 }}
-        style={[styles.hero, { paddingTop: insets.top + 24 }]}
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.heroContent}>
-          <View style={styles.heroBadge}>
-            <Ionicons name="boat-outline" size={18} color={colors.white} />
-            <Text style={styles.heroBadgeText}>Νέο μέλος</Text>
+        <LinearGradient
+          colors={["rgba(18, 219, 192, 0.7)", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0.6 }}
+          style={[styles.hero, { paddingTop: insets.top + 24 }]}
+        >
+          <View style={styles.heroContent}>
+            <View style={styles.heroBadge}>
+              <Ionicons name="boat-outline" size={18} color={colors.white} />
+              <Text style={styles.heroBadgeText}>Νέο μέλος</Text>
+            </View>
+            <Text style={styles.title}>Δημιουργήστε λογαριασμό</Text>
+            <Text style={styles.subtitle}>
+              Μία θέση για όλες τις εξορμήσεις σας: αποθηκεύστε προβλέψεις, σημεία
+              και φωτογραφίες.
+            </Text>
           </View>
-          <Text style={styles.title}>Δημιουργήστε λογαριασμό</Text>
-          <Text style={styles.subtitle}>
-            Μία θέση για όλες τις εξορμήσεις σας: αποθηκεύστε προβλέψεις, σημεία
-            και φωτογραφίες.
-          </Text>
-        </View>
-      </LinearGradient>
+        </LinearGradient>
 
-      <View style={[styles.inner, { paddingBottom: insets.bottom + 24 }]}>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>
-            Συμπληρώστε τα στοιχεία σας για να ξεκινήσετε
-          </Text>
+        <View style={styles.inner}>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>
+              Συμπληρώστε τα στοιχεία σας για να ξεκινήσετε
+            </Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Όνομα</Text>
-            <TextInput
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="Ψαράκης"
-              style={styles.input}
-              placeholderTextColor="rgba(255,255,255,0.4)"
-            />
+            <View style={styles.form}>
+              <Text style={styles.label}>Όνομα</Text>
+              <TextInput
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Ψαράκης"
+                style={styles.input}
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
 
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="name@example.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              placeholderTextColor="rgba(255,255,255,0.4)"
-            />
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="name@example.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
 
-            <Text style={styles.label}>Κωδικός</Text>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="********"
-              secureTextEntry
-              style={styles.input}
-              placeholderTextColor="rgba(255,255,255,0.4)"
-            />
+              <Text style={styles.label}>Κωδικός</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="********"
+                secureTextEntry
+                style={styles.input}
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
 
-            <Text style={styles.label}>Επιβεβαίωση κωδικού</Text>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="********"
-              secureTextEntry
-              style={styles.input}
-              placeholderTextColor="rgba(255,255,255,0.4)"
-            />
+              <Text style={styles.label}>Επιβεβαίωση κωδικού</Text>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="********"
+                secureTextEntry
+                style={styles.input}
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  !canSubmit && styles.buttonDisabled,
+                ]}
+                onPress={handleRegister}
+                disabled={!canSubmit}
+              >
+                <LinearGradient
+                  colors={["#12dbc0", "#0fb8a4"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.primaryButtonGradient}
+                >
+                  <Text style={styles.primaryButtonText}>
+                    {isLoading ? "Εγγραφή..." : "Εγγραφή"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ή</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
             <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                !canSubmit && styles.buttonDisabled,
-              ]}
-              onPress={handleRegister}
-              disabled={!canSubmit}
+              style={styles.googleButton}
+              onPress={handleGoogleLogin}
+              activeOpacity={0.85}
             >
-              <LinearGradient
-                colors={["#12dbc0", "#0fb8a4"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryButtonGradient}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isLoading ? "Εγγραφή..." : "Εγγραφή"}
-                </Text>
-              </LinearGradient>
+              <Ionicons name="logo-google" size={20} color={colors.white} />
+              <Text style={styles.googleButtonText}>Εγγραφή με Google</Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>ή</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
           <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleLogin}
-            activeOpacity={0.85}
+            style={styles.linkContainer}
+            onPress={() => router.replace("/login")}
           >
-            <Ionicons name="logo-google" size={20} color={colors.white} />
-            <Text style={styles.googleButtonText}>Εγγραφή με Google</Text>
+            <Text style={styles.linkText}>
+              Έχετε ήδη λογαριασμό;{" "}
+              <Text style={styles.linkHighlight}>Συνδεθείτε</Text>
+            </Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.linkContainer}
-          onPress={() => router.replace("/login")}
-        >
-          <Text style={styles.linkText}>
-            Έχετε ήδη λογαριασμό;{" "}
-            <Text style={styles.linkHighlight}>Συνδεθείτε</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

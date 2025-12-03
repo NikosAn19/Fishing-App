@@ -32,12 +32,14 @@ export default {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.psarakiapp",
     },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#ffffff",
       },
+      package: "com.psarakiapp.fishingapp",
       edgeToEdgeEnabled: true,
       config: {
         googleMaps: {

@@ -1,4 +1,4 @@
-import { MatrixClient, Room, Visibility } from 'matrix-js-sdk';
+import { MatrixClient, Room, Visibility, Preset } from 'matrix-js-sdk';
 
 export class MatrixRoomManager {
   private getClient: () => MatrixClient | null;
@@ -57,6 +57,66 @@ export class MatrixRoomManager {
       console.error('❌ MatrixRoomManager: Failed to create room', error);
       return null;
     }
+  }
+
+  /**
+   * Creates a Direct Message (1:1) chat with a user.
+   */
+  public async createDirectChat(userId: string): Promise<string | null> {
+    const client = this.getClient();
+    if (!client) return null;
+
+    try {
+      console.log(`💬 Creating DM with ${userId}...`);
+      const response = await client.createRoom({
+        preset: Preset.TrustedPrivateChat,
+        invite: [userId],
+        is_direct: true,
+      });
+      console.log(`✅ DM Created: ${response.room_id}`);
+      return response.room_id;
+    } catch (error) {
+      console.error('❌ MatrixRoomManager: Failed to create DM', error);
+      return null;
+    }
+  }
+
+
+  /**
+   * Joins or opens a chat based on the identifier format.
+   * - Starts with '!': Joins existing room by ID.
+   * - Starts with '#': Joins public room by alias, or creates it if missing.
+   * - Otherwise: Treats as User ID and creates/opens Direct Chat.
+   */
+  public async joinOrOpenChat(identifier: string): Promise<string | null> {
+    // 1. Existing Room ID
+    if (identifier.startsWith('!')) {
+        console.log('✅ MatrixRoomManager: Opening existing room:', identifier);
+        const room = await this.joinRoom(identifier);
+        return room ? room.roomId : null;
+    }
+
+    // 2. Room Alias (Public Channel)
+    if (identifier.startsWith('#')) {
+        console.log('🔄 MatrixRoomManager: Joining public room:', identifier);
+        let room = await this.joinRoom(identifier);
+        
+        if (!room) {
+            console.log('⚠️ MatrixRoomManager: Room not found, attempting to create:', identifier);
+            // Extract alias localpart (e.g. #alias:server -> alias)
+            const aliasLocalpart = identifier.split(':')[0].substring(1);
+            const roomId = await this.createRoom(aliasLocalpart, false, aliasLocalpart);
+            if (roomId) {
+                console.log('✅ MatrixRoomManager: Created public room:', roomId);
+                return roomId;
+            }
+        }
+        return room ? room.roomId : null;
+    }
+
+    // 3. User ID (Direct Chat)
+    console.log('💬 MatrixRoomManager: Treating as User ID for DM:', identifier);
+    return this.createDirectChat(identifier);
   }
 
   /**

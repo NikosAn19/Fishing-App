@@ -138,3 +138,48 @@ export async function getProfile(
     return next(error);
   }
 }
+
+export async function searchUsers(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    const { query } = req.query;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: "Query parameter is required",
+      });
+    }
+
+    const users = await UserModel.find({
+      $or: [
+        { displayName: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+      ],
+      _id: { $ne: req.user._id } // Exclude self
+    })
+    .select('displayName email avatarUrl')
+    .limit(10);
+
+    return res.json({
+      success: true,
+      users: users.map(u => ({
+        id: u._id,
+        displayName: u.displayName,
+        email: u.email,
+        avatarUrl: u.avatarUrl
+      })),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}

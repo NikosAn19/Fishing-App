@@ -3,6 +3,7 @@
 export enum ProfileMenuItemType {
   MY_PROFILE = "MY_PROFILE",
   MY_ADVENTURES = "MY_ADVENTURES",
+  NOTIFICATIONS = "NOTIFICATIONS",
   SETTINGS = "SETTINGS",
   LOGOUT = "LOGOUT",
 }
@@ -10,6 +11,7 @@ export enum ProfileMenuItemType {
 export enum ProfileMenuItemLabel {
   MY_PROFILE = "Το Προφίλ μου",
   MY_ADVENTURES = "Οι Εξορμήσεις μου",
+  NOTIFICATIONS = "Ειδοποιήσεις",
   SETTINGS = "Ρυθμίσεις",
   LOGOUT = "Αποσύνδεση",
 }
@@ -33,6 +35,12 @@ export const PROFILE_MENU_ITEMS: ProfileMenuItem[] = [
     label: ProfileMenuItemLabel.MY_ADVENTURES,
     icon: "compass-outline",
     route: "/adventures",
+  },
+  {
+    type: ProfileMenuItemType.NOTIFICATIONS,
+    label: ProfileMenuItemLabel.NOTIFICATIONS,
+    icon: "notifications-outline",
+    route: "/notifications",
   },
   {
     type: ProfileMenuItemType.SETTINGS,

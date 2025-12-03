@@ -16,6 +16,12 @@ export interface UserDoc extends Document {
     deviceId?: string;
     isSynced: boolean;
   };
+  pushToken?: string;
+  friends: {
+    user: Types.ObjectId;
+    status: "pending" | "accepted" | "blocked";
+    createdAt: Date;
+  }[];
 }
 
 const UserSchema = new Schema<UserDoc>(
@@ -54,6 +60,21 @@ const UserSchema = new Schema<UserDoc>(
       deviceId: { type: String },
       isSynced: { type: Boolean, default: false },
     },
+    pushToken: {
+      type: String,
+      sparse: true,
+    },
+    friends: [
+      {
+        user: { type: Schema.Types.ObjectId, ref: "User" },
+        status: {
+          type: String,
+          enum: ["pending", "accepted", "blocked"],
+          default: "pending",
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

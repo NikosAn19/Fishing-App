@@ -1,8 +1,13 @@
 import express from "express";
 import { requireAuth } from "../middleware/requireAuth";
-import { updateProfile, getProfile } from "../controllers/userController";
+import { updateProfile, getProfile, searchUsers } from "../controllers/userController";
 
 const router = express.Router();
+
+// @desc    Search users
+// @route   GET /api/users/search
+// @access  Private
+router.get("/search", requireAuth, searchUsers);
 
 // @desc    Get user profile
 // @route   GET /api/users/profile

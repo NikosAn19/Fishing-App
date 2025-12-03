@@ -6,6 +6,7 @@ import compression from "compression";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import dotenv from "dotenv";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 // Load environment variables
 dotenv.config();
@@ -25,9 +26,15 @@ import uploadsRoutes from "./routes/uploads";
 import adventureRoutes from "./routes/adventures";
 import favoriteSpotsRoutes from "./routes/favoriteSpots";
 import chatRoutes from "./routes/chatRoutes";
+import friendRoutes from "./routes/friendRoutes";
 import { seedChannels } from "./scripts/seedChannels";
 
 const app = express();
+
+// Logging middleware (moved to top to log all requests including proxy)
+if (process.env.NODE_ENV !== "production") {
+  app.use(morgan("dev"));
+}
 
 // Configure trust proxy so rate limiting & logging can rely on X-Forwarded-* headers
 const trustProxySetting = process.env.TRUST_PROXY;
@@ -135,12 +142,37 @@ app.use(
 // Rate limiting
 const limiter = rateLimit({
   windowMs: (Number(process.env.RATE_LIMIT_WINDOW) || 15) * 60 * 1000, // 15 minutes
-  max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // limit each IP to 1000 requests per windowMs
   message: "Too many requests from this IP, please try again later.",
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
+
+// Proxy Matrix requests to Synapse (must be before body parsers)
+// This allows the single ngrok tunnel to serve both API and Matrix traffic
+app.use(
+  "/_matrix",
+  createProxyMiddleware({
+    target: "http://localhost:8008",
+    changeOrigin: true,
+    ws: true,
+    pathRewrite: {
+      "^/": "/_matrix/", // Add /_matrix prefix back since app.use strips it
+    },
+    onProxyReq: (proxyReq: any, req: any, res: any) => {
+        console.log(`[Proxy Request] ${req.method} ${req.url} -> ${proxyReq.path}`);
+        // Log headers to see if Content-Length/Type are correct
+        console.log(`[Proxy Request Headers] Content-Type: ${req.headers['content-type']}, Content-Length: ${req.headers['content-length']}`);
+    },
+    onProxyRes: (proxyRes: any, req: any, res: any) => {
+        console.log(`[Proxy Response] ${req.method} ${req.url} -> Status: ${proxyRes.statusCode}`);
+        if (proxyRes.statusCode >= 400) {
+            console.warn(`[Proxy Response Error] Body: ${proxyRes.statusMessage}`);
+        }
+    },
+  } as any)
+);
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
@@ -150,9 +182,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(compression());
 
 // Logging middleware
-if (process.env.NODE_ENV !== "production") {
-  app.use(morgan("dev"));
-}
+// Logging middleware removed from here (moved to top)
 
 /**
  * Static files (local dev only)
@@ -180,7 +210,9 @@ app.use("/api/forecast", forecastRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/adventures", adventureRoutes);
 app.use("/api/favorite-spots", favoriteSpotsRoutes);
+app.use("/api/favorite-spots", favoriteSpotsRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/friends", friendRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

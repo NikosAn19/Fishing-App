@@ -1,15 +1,45 @@
 import React from "react";
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import { BackButton } from "../../../../generic/common/BackButton";
-import { MOCK_DIRECT_MESSAGES } from "../data/mockData";
+// import { MOCK_DIRECT_MESSAGES } from "../data/mockData";
 import { DirectMessage } from "../types/chatTypes";
+
+import { matrixService } from "../matrix/MatrixService";
+import { Room } from "matrix-js-sdk";
+import { RoomMapper } from "../matrix/utils/RoomMapper";
 
 export default function DirectMessagesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [dms, setDms] = React.useState<DirectMessage[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchDMs = async () => {
+      setLoading(true);
+      const allRooms = matrixService.rooms.getSortedRooms();
+      
+      // Filter for DMs
+      // We need to map Matrix Rooms to our DirectMessage type
+      const dmRooms = allRooms.filter(room => matrixService.rooms.isDirectChat(room));
+
+      const mappedDMs: DirectMessage[] = await Promise.all(dmRooms.map(async (room) => {
+          const me = matrixService.auth.getUserId();
+          if (!me) return null;
+          return RoomMapper.toDirectMessage(room, me);
+      })).then(results => results.filter((dm): dm is DirectMessage => dm !== null));
+
+      setDms(mappedDMs);
+      setLoading(false);
+  };
+
+  useFocusEffect(
+      React.useCallback(() => {
+          fetchDMs();
+      }, [])
+  );
 
   const handleBack = () => {
     router.back();
@@ -75,10 +105,15 @@ export default function DirectMessagesScreen() {
       </View>
 
       <FlatList
-        data={MOCK_DIRECT_MESSAGES}
+        data={dms}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+            <View style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: colors.textSecondary }}>No direct messages yet.</Text>
+            </View>
+        }
       />
     </View>
   );

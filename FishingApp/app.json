@@ -22,6 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.psarakiapp.fishingapp",
       "edgeToEdgeEnabled": true,
       "minSdkVersion": 24,
       "compileSdkVersion": 35,

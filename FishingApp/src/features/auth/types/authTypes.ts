@@ -10,6 +10,13 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface Friend {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+  status: 'pending' | 'accepted' | 'blocked';
+}
+
 export interface AuthUser {
   id: string;
   email?: string | null;
@@ -27,6 +34,8 @@ export interface AuthUser {
     deviceId?: string;
     isSynced: boolean;
   };
+  friends?: Friend[];
+  pushToken?: string;
 }
 
 export interface AuthSuccessResponse {

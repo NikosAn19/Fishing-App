@@ -12,11 +12,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
+import UserActionModal from "../components/UserActionModal";
 import { Message, DirectMessage } from "../types/chatTypes";
 import { BackButton } from "../../../../generic/common/BackButton";
 
 import { matrixService } from "../matrix/MatrixService";
-import { chatApi } from "../matrix/api/client";
 import { useAuthStore } from "../../../auth/stores/authStore";
 
 export default function ChatRoomScreen() {
@@ -30,47 +30,15 @@ export default function ChatRoomScreen() {
       if (matrixService.auth.isClientReady()) {
         setMatrixStatus('Συνδέθηκε στο Matrix!');
         
-        // Check if channelId is already a Matrix Room ID (starts with !)
-        if (channelId?.startsWith('!')) {
-            console.log('✅ Opening existing room:', channelId);
-            // Ensure we join the room (idempotent if already joined)
-            await matrixService.rooms.joinRoom(channelId);
-            setRoomId(channelId);
-        }
-        // Check if it's an Alias (starts with #) - Join Public Room
-        else if (channelId?.startsWith('#')) {
-             console.log('🔄 Joining public room:', channelId);
-             let room = await matrixService.rooms.joinRoom(channelId);
-             
-             if (!room) {
-                 console.log('⚠️ Room not found, attempting to create:', channelId);
-                 // Extract alias localpart (e.g. #alias:server -> alias)
-                 const aliasLocalpart = channelId.split(':')[0].substring(1);
-                 const roomId = await matrixService.rooms.createRoom(aliasLocalpart, false, aliasLocalpart);
-                 if (roomId) {
-                     console.log('✅ Created public room:', roomId);
-                     setRoomId(roomId);
-                     return; // Created and set, we are done
-                 }
-             }
-
-             if (room) {
-                 console.log('✅ Joined room:', room.roomId);
-                 setRoomId(room.roomId);
-             } else {
-                 console.error('❌ Failed to join or create room:', channelId);
-                 setMatrixStatus('Failed to join room');
-             }
-        } 
-        // Otherwise, treat it as a User ID to start a DM
-        else if (channelId) {
-            const newRoomId = await chatApi.startDirectChat(channelId);
-            if (newRoomId) {
-                console.log('✅ Room Ready:', newRoomId);
-                setRoomId(newRoomId);
-            } else {
-                console.error('❌ Failed to get room from backend');
-            }
+        // Use centralized logic to join/open chat
+        const roomId = await matrixService.rooms.joinOrOpenChat(channelId);
+        
+        if (roomId) {
+            console.log('✅ Chat Ready:', roomId);
+            setRoomId(roomId);
+        } else {
+            console.error('❌ Failed to join or create room:', channelId);
+            setMatrixStatus('Failed to join room');
         }
       } else {
         setMatrixStatus('Δεν υπάρχει σύνδεση στο Matrix');
@@ -106,6 +74,7 @@ export default function ChatRoomScreen() {
   const insets = useSafeAreaInsets();
 
   const [roomName, setRoomName] = useState<string>("Chat");
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
 
   useEffect(() => {
     if (roomId) {
@@ -171,6 +140,40 @@ export default function ChatRoomScreen() {
     }, 100);
   }, [messages]);
 
+  const handleAvatarPress = (user: { id: string; name: string; avatar?: string }) => {
+    setSelectedUser(user);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUser(null);
+  };
+
+  const handleShowProfile = () => {
+    console.log("Show Profile clicked for:", selectedUser);
+    handleCloseModal();
+  };
+
+  const handleAddFriend = () => {
+    console.log("Add Friend clicked for:", selectedUser);
+    handleCloseModal();
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedUser) return;
+    console.log("Send Message clicked for:", selectedUser);
+    handleCloseModal();
+
+    // Create or find DM room
+    const dmRoomId = await matrixService.rooms.createDirectChat(selectedUser.id);
+    if (dmRoomId) {
+        // Navigate to the new room
+        // We use push to add to stack, so user can go back
+        router.push(`/community/chat/${dmRoomId}`);
+    } else {
+        alert('Failed to start chat');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -193,12 +196,16 @@ export default function ChatRoomScreen() {
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <MessageBubble
-              message={item}
-              isMe={item.senderId === "current-user"}
-            />
-          )}
+          renderItem={({ item }) => {
+            const currentUserId = matrixService.auth.getUserId();
+            return (
+              <MessageBubble
+                message={item}
+                isMe={item.senderId === currentUserId}
+                onAvatarPress={handleAvatarPress}
+              />
+            );
+          }}
           style={styles.flatList}
           contentContainerStyle={styles.listContent}
         />
@@ -207,6 +214,14 @@ export default function ChatRoomScreen() {
           onImagePress={() => console.log("Image button pressed")}
         />
       </KeyboardAvoidingView>
+
+      <UserActionModal
+        visible={!!selectedUser}
+        onClose={handleCloseModal}
+        user={selectedUser}
+        onShowProfile={handleShowProfile}
+        onSendMessage={handleSendMessage}
+      />
     </View>
   );
 }

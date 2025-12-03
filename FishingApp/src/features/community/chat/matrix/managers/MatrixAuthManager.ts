@@ -1,6 +1,6 @@
 import { createClient, MatrixClient } from 'matrix-js-sdk';
 import { logger } from 'matrix-js-sdk/lib/logger';
-import { API_BASE } from '../../../../../config/api';
+import { API_BASE, DEV_MACHINE_IP } from '../../../../../config/api';
 
 export class MatrixAuthManager {
   private client: MatrixClient | null = null;
@@ -10,15 +10,26 @@ export class MatrixAuthManager {
     // Derive Matrix URL from the centralized API_BASE
     // This ensures we use the same IP/Host as the main API (handling Android localhost etc.)
     try {
-      // Remove protocol and port to get the hostname
-      const url = new URL(API_BASE);
-      const host = url.hostname;
-      // Matrix is always on port 8008 for now
-      this.baseUrl = `http://${host}:8008`;
+      // Check if we are using a tunnel or HTTPS (production/ngrok)
+      // In these cases, we usually want to use the base URL as is
+      if (API_BASE.includes('ngrok') || API_BASE.startsWith('https://')) {
+          this.baseUrl = API_BASE;
+          // Remove trailing slash if present
+          if (this.baseUrl.endsWith('/')) {
+              this.baseUrl = this.baseUrl.slice(0, -1);
+          }
+      } else {
+          // Local development: Matrix is typically on port 8008
+          // Remove protocol and port to get the hostname
+          const url = new URL(API_BASE);
+          const host = url.hostname;
+          this.baseUrl = `http://${host}:8008`;
+      }
+      
       console.log('🔌 MatrixAuthManager: Configured with baseUrl:', this.baseUrl);
     } catch (e) {
       console.warn('⚠️ MatrixAuthManager: Could not parse API_BASE, falling back to default');
-      this.baseUrl = 'http://192.168.2.4:8008';
+      this.baseUrl = `http://${DEV_MACHINE_IP}:8008`;
     }
     
     // Silence Matrix SDK logs
@@ -146,15 +157,43 @@ export class MatrixAuthManager {
           return;
       }
 
-      // If it's an HTTP URL, we ideally need to download and upload it to Matrix
-      // For now, we'll try setting it directly, but it might not work on all clients
-      // TODO: Implement download & upload flow for external URLs
-      console.warn('⚠️ MatrixAuthManager: External avatar URLs might not display correctly in all clients. Uploading to Matrix is recommended.');
+      // If it's an HTTP URL, download and upload it to Matrix
+      if (url.startsWith('http')) {
+          console.log(`🔄 MatrixAuthManager: Downloading avatar from external URL: ${url}`);
+          const response = await fetch(url);
+          if (!response.ok) {
+            console.error(`❌ MatrixAuthManager: Failed to download avatar. Status: ${response.status}`);
+            return;
+          }
+          let blob = await response.blob();
+          console.log(`🔄 MatrixAuthManager: Downloaded blob size: ${blob.size}, type: ${blob.type}`);
+          
+          // Fix missing MIME type
+          if (!blob.type) {
+              const ext = url.split('.').pop()?.toLowerCase();
+              let mimeType = 'application/octet-stream';
+              if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+              else if (ext === 'png') mimeType = 'image/png';
+              else if (ext === 'gif') mimeType = 'image/gif';
+              
+              console.log(`⚠️ MatrixAuthManager: Blob has no type, forcing ${mimeType}`);
+              blob = new Blob([blob], { type: mimeType });
+          }
+          
+          console.log('🔄 MatrixAuthManager: Uploading avatar to Matrix...');
+          const uploadResponse = await client.uploadContent(blob);
+          console.log('✅ MatrixAuthManager: Upload response:', JSON.stringify(uploadResponse));
+          
+          if (uploadResponse && uploadResponse.content_uri) {
+              await client.setAvatarUrl(uploadResponse.content_uri);
+              console.log(`✅ MatrixAuthManager: Avatar set to: ${uploadResponse.content_uri}`);
+              return;
+          } else {
+            console.error('❌ MatrixAuthManager: Upload response missing content_uri');
+          }
+      }
       
-      // Attempt to upload if it's a remote URL? 
-      // That requires fetching the blob, which might have CORS issues in browser, but OK in RN.
-      // For this iteration, we'll skip the complex upload and just log.
-      
+      console.warn('⚠️ MatrixAuthManager: Could not set avatar, URL format not supported or upload failed');
     } catch (error) {
       console.error('❌ MatrixAuthManager: Failed to set avatar', error);
     }

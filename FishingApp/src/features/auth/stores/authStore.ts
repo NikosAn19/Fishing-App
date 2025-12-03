@@ -11,6 +11,7 @@ import {
 import { authApi } from "../api/client";
 import { AuthActions, AuthState, AuthStore, TokenPair } from "../types/authStoreTypes";
 import { matrixService } from "../../community/chat/matrix/MatrixService";
+import { API_BASE } from "../../../config/api";
 
 const ACCESS_TOKEN_KEY = "auth_access_token";
 const REFRESH_TOKEN_KEY = "auth_refresh_token";
@@ -121,6 +122,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     try {
       const user = await authApi.me(accessToken);
+      
+      // Also fetch friends
+      try {
+          const friendsRes = await fetch(`${API_BASE}/api/friends`, {
+              headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (friendsRes.ok) {
+              const friends = await friendsRes.json();
+              user.friends = friends;
+          }
+      } catch (e) {
+          console.warn("Failed to fetch friends:", e);
+      }
+
       set({ user }); // Only update user, don't change status
       console.log("✅ User refreshed successfully");
     } catch (error) {

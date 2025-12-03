@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { colors } from "../../../../theme/colors";
 import { Message } from "../types/chatTypes";
 
@@ -7,24 +7,46 @@ interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
   showAvatar?: boolean;
+  onAvatarPress?: (user: { id: string; name: string; avatar?: string }) => void;
 }
 
-export default function MessageBubble({ message, isMe, showAvatar = true }: MessageBubbleProps) {
-  return (
-    <View style={[styles.container, isMe ? styles.containerMe : styles.containerOther]}>
-      {!isMe && showAvatar && (
-        <View style={styles.avatarContainer}>
-          {message.senderAvatar ? (
-            <Image source={{ uri: message.senderAvatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Text style={styles.avatarText}>
-                {message.senderName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+export default function MessageBubble({ message, isMe, showAvatar = true, onAvatarPress }: MessageBubbleProps) {
+  
+  const handleAvatarPress = () => {
+    if (onAvatarPress) {
+      onAvatarPress({
+        id: message.senderId,
+        name: message.senderName,
+        avatar: message.senderAvatar
+      });
+    }
+  };
+
+  const renderAvatar = () => (
+    <TouchableOpacity 
+      onPress={handleAvatarPress}
+      activeOpacity={0.8}
+      style={[styles.avatarContainer, isMe && { marginRight: 0, marginLeft: 8 }]}
+    >
+      {message.senderAvatar ? (
+        <Image 
+          source={{ uri: message.senderAvatar }} 
+          style={styles.avatar}
+          onError={(e) => console.log(`[MessageBubble] Failed to load avatar: ${message.senderAvatar}`, e.nativeEvent.error)}
+        />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarText}>
+            {message.senderName.charAt(0).toUpperCase()}
+          </Text>
         </View>
       )}
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={[styles.container, isMe ? styles.containerMe : styles.containerOther]}>
+      {!isMe && showAvatar && renderAvatar()}
       
       <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
         {!isMe && <Text style={styles.senderName}>{message.senderName}</Text>}
@@ -42,6 +64,8 @@ export default function MessageBubble({ message, isMe, showAvatar = true }: Mess
           })}
         </Text>
       </View>
+
+      {isMe && showAvatar && renderAvatar()}
     </View>
   );
 }

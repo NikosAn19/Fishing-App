@@ -1,4 +1,4 @@
-import { MatrixClient, EventType, MsgType, RoomEvent, MatrixEvent } from 'matrix-js-sdk';
+import { MatrixClient, EventType, MsgType, RoomEvent, MatrixEvent, Room, EventStatus } from 'matrix-js-sdk';
 import { Message } from '../../types/chatTypes';
 import { EventMapper } from '../utils/EventMapper';
 
@@ -24,7 +24,7 @@ export class MatrixEventManager {
 
     // Map to our Message type
     return events
-      .map(event => EventMapper.fromMatrixEvent(event))
+      .map(event => EventMapper.fromMatrixEvent(event, client))
       .filter((msg): msg is Message => msg !== null);
   }
 
@@ -36,13 +36,13 @@ export class MatrixEventManager {
     const client = this.getClient();
     if (!client) return () => {};
 
-    const handler = (event: MatrixEvent, room: any) => {
+    const handler = (event: MatrixEvent, room: Room | undefined) => {
       if (!room || room.roomId !== roomId) return;
       
       // Only handle new events (not pagination)
-      const status = (event as any).getStatus ? (event as any).getStatus() : (event as any).status;
-      if (status === null || status === 'sent') { // 'sent' or null (incoming)
-          const msg = EventMapper.fromMatrixEvent(event);
+      const status = event.getAssociatedStatus();
+      if (status === null || status === EventStatus.SENT) { // 'sent' or null (incoming)
+          const msg = EventMapper.fromMatrixEvent(event, client);
           if (msg) {
             callback(msg);
           }

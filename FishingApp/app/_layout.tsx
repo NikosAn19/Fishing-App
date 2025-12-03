@@ -17,6 +17,8 @@ import { AuthStatus } from "../src/features/auth/types/authTypes";
 import { useForecastCacheStore } from "../src/features/forecast/stores/forecastCacheStore";
 import { useFavoriteSpotsStore } from "../src/features/maps/stores/favoriteSpotsStore";
 import { colors } from "../src/theme/colors";
+import { usePushNotifications } from "../src/hooks/usePushNotifications";
+import { useAuthStore } from "../src/features/auth/stores/authStore";
 
 export default function RootLayout() {
   const router = useRouter();
@@ -29,6 +31,22 @@ export default function RootLayout() {
   const { actions: favoriteSpotsActions } = useFavoriteSpotsStore();
   const forecastFetchedRef = useRef(false);
   const favoriteSpotsFetchedRef = useRef(false);
+  
+  // Push Notifications
+  const { expoPushToken, registerTokenWithBackend } = usePushNotifications();
+
+  useEffect(() => {
+    if (status === AuthStatus.AUTHENTICATED && expoPushToken) {
+        // We need the access token here. Since useAuth doesn't expose it directly in the hook return,
+        // we might need to get it from the store or assume the hook handles it if we pass nothing?
+        // Checking usePushNotifications again... it takes (token, accessToken).
+        // We need to get the accessToken from the store.
+        const accessToken = useAuthStore.getState().accessToken;
+        if (accessToken) {
+            registerTokenWithBackend(accessToken);
+        }
+    }
+  }, [status, expoPushToken]);
 
   useEffect(() => {
     bootstrapSession();
