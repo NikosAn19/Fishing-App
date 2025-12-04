@@ -1,8 +1,11 @@
 import React from "react";
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Image, TouchableWithoutFeedback } from "react-native";
+import { useRouter } from "expo-router";
 import { colors } from "../../../../theme/colors";
 
 import { useAuthStore } from "../../../auth/stores/authStore";
+import { AppRepository } from "../../../../repositories";
+import { UserAction } from "../domain/types";
 
 interface UserActionModalProps {
   visible: boolean;
@@ -13,7 +16,6 @@ interface UserActionModalProps {
     avatar?: string;
   } | null;
   onShowProfile: () => void;
-  onSendMessage: () => void;
 }
 
 export default function UserActionModal({ 
@@ -21,37 +23,64 @@ export default function UserActionModal({
   onClose, 
   user, 
   onShowProfile,
-  onSendMessage,
 }: UserActionModalProps) {
-  const { accessToken } = useAuthStore();
+  const router = useRouter();
+  const accessToken = useAuthStore(state => state.accessToken);
+  const [userEntity, setUserEntity] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const loadUser = async () => {
+      if (!user) return;
+      try {
+        // Resolve UserEntity (handle Matrix ID vs Server ID)
+        let entity = null;
+        if (user.id.startsWith('@')) {
+           entity = await AppRepository.user.getUserByMatrixId(user.id);
+        } else {
+           entity = await AppRepository.user.getUser(user.id);
+        }
+        setUserEntity(entity);
+      } catch (e) {
+        console.warn('UserActionModal: Failed to resolve user entity', e);
+      }
+    };
+    loadUser();
+  }, [user]);
   
   const handleAddFriend = async () => {
-      // ... existing code ...
-      if (!user || !accessToken) return;
+      if (!userEntity) {
+          alert('User information not fully loaded yet.');
+          return;
+      }
       
       try {
-          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/friends/request`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${accessToken}`
-              },
-              body: JSON.stringify({ targetUserId: user.id }) // Note: user.id here must be the Mongo ID, not Matrix ID
-          });
-          
-          if (response.ok) {
-              console.log('Friend request sent!');
-              alert('Friend request sent!');
-          } else {
-              const data = await response.json();
-              alert(data.message || 'Failed to send request');
-          }
+          await AppRepository.user.performUserAction(userEntity, UserAction.AddFriend);
+          alert('Friend request sent!');
       } catch (e) {
           console.error(e);
           alert('Error sending request');
       }
       onClose();
   };
+
+  const handleSendMessage = async () => {
+      if (!userEntity) {
+          alert('User information not fully loaded yet.');
+          return;
+      }
+      
+      try {
+          const roomId = await AppRepository.user.performUserAction(userEntity, UserAction.Chat);
+          onClose();
+          if (roomId) {
+              router.push(`/community/chat/${roomId}`);
+          }
+      } catch (e) {
+          console.error(e);
+          alert('Failed to start chat');
+      }
+  };
+
   if (!user) return null;
 
   return (
@@ -81,7 +110,7 @@ export default function UserActionModal({
               </View>
 
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.primaryButton} onPress={onSendMessage}>
+                <TouchableOpacity style={styles.primaryButton} onPress={handleSendMessage}>
                   <Text style={styles.primaryButtonText}>Send Message</Text>
                 </TouchableOpacity>
 

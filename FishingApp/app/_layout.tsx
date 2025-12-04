@@ -11,7 +11,7 @@ import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 // import GlobalHeader from "../src/generic/layout/GlobalHeader"; // Disabled - moved to BottomMenu
 import BottomMenu from "../src/generic/layout/BottomMenu";
-import SplashScreen from "../src/generic/common/SplashScreen";
+import FactSplashScreen from "../src/features/splash/screens/FactSplashScreen";
 import { useAuth } from "../src/features/auth/hooks/useAuth";
 import { AuthStatus } from "../src/features/auth/types/authTypes";
 import { useForecastCacheStore } from "../src/features/forecast/stores/forecastCacheStore";
@@ -19,6 +19,7 @@ import { useFavoriteSpotsStore } from "../src/features/maps/stores/favoriteSpots
 import { colors } from "../src/theme/colors";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { useAuthStore } from "../src/features/auth/stores/authStore";
+import { useLocationStore } from "../src/features/location/stores/locationStore";
 
 export default function RootLayout() {
   const router = useRouter();
@@ -64,6 +65,10 @@ export default function RootLayout() {
           const pos = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
+          
+          // Save to Location Store for instant access in Home Screen
+          useLocationStore.getState().setCoords(pos.coords.latitude, pos.coords.longitude);
+
           // Fetch and cache forecast (won't fetch if cache is valid)
           await forecastActions.fetchAndCache(
             pos.coords.latitude,
@@ -177,7 +182,7 @@ export default function RootLayout() {
   ) {
     return (
       <View style={styles.container}>
-        <SplashScreen onFinish={() => setShowSplash(false)} />
+        <FactSplashScreen onFinish={() => setShowSplash(false)} />
       </View>
     );
   }

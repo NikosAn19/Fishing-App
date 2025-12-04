@@ -6,6 +6,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,54 +14,70 @@ import { colors } from "../../../../theme/colors";
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
 import UserActionModal from "../components/UserActionModal";
-import { Message, DirectMessage } from "../types/chatTypes";
 import { BackButton } from "../../../../generic/common/BackButton";
 
 import { matrixService } from "../matrix/MatrixService";
-import { useAuthStore } from "../../../auth/stores/authStore";
+import { useIdentityStore } from "../../../auth/stores/IdentityStore";
+import { AppRepository } from "../../../../repositories";
+import { useChatStore } from "../stores/ChatStore";
+
+const EMPTY_ARRAY: any[] = [];
 
 export default function ChatRoomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
   const [matrixStatus, setMatrixStatus] = useState('Αποσυνδεδεμένος');
   const [roomId, setRoomId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Repository State
+  const messages = useChatStore(state => roomId ? (state.messages[roomId] || EMPTY_ARRAY) : EMPTY_ARRAY);
+  const matrixMapping = useIdentityStore(state => state.matrixMapping);
+  const identities = useIdentityStore(state => state.identities);
+  
+  const router = useRouter();
+  const flatListRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
 
+  const [roomName, setRoomName] = useState<string>("Chat");
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+
+  // 1. Initialize Chat Room
   useEffect(() => {
     const initChat = async () => {
-      // Check if client is ready (login handled by authStore)
       if (matrixService.auth.isClientReady()) {
         setMatrixStatus('Συνδέθηκε στο Matrix!');
         
-        // Use centralized logic to join/open chat
-        const roomId = await matrixService.rooms.joinOrOpenChat(channelId);
+        const id = await AppRepository.chat.joinRoom(channelId);
         
-        if (roomId) {
-            console.log('✅ Chat Ready:', roomId);
-            setRoomId(roomId);
+        if (id) {
+            console.log('✅ Chat Ready:', id);
+            setRoomId(id);
         } else {
             console.error('❌ Failed to join or create room:', channelId);
             setMatrixStatus('Failed to join room');
+            setIsLoading(false);
         }
       } else {
         setMatrixStatus('Δεν υπάρχει σύνδεση στο Matrix');
+        setIsLoading(false);
       }
     };
 
     initChat();
   }, [channelId]);
+
+  // 2. Load & Subscribe to Messages
   useEffect(() => {
     if (roomId) {
-      // 1. Load initial history
-      const initialMessages = matrixService.events.getRoomMessages(roomId);
-      setMessages(initialMessages);
+      // Load initial history
+      const load = async () => {
+          await AppRepository.chat.loadMessages(roomId);
+          setIsLoading(false);
+      };
+      load();
 
-      // 2. Subscribe to new messages
-      const unsubscribe = matrixService.events.subscribeToRoom(roomId, (newMessage) => {
-        setMessages((prev) => {
-          // Avoid duplicates
-          if (prev.some(m => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
-      });
+      // Subscribe to new messages
+      const unsubscribe = AppRepository.chat.subscribeToRoom(roomId);
 
       return () => {
         unsubscribe();
@@ -68,14 +85,39 @@ export default function ChatRoomScreen() {
     }
   }, [roomId]);
 
-  const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]); // Start empty, load from Matrix
-  const flatListRef = useRef<FlatList>(null);
-  const insets = useSafeAreaInsets();
 
-  const [roomName, setRoomName] = useState<string>("Chat");
-  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
 
+
+  // Momentum Scroll Lock
+  const canLoadMore = useRef(false);
+
+  // 2.5 Fetch Missing Identities
+  useEffect(() => {
+      const fetchMissing = async () => {
+          const missingIds = new Set<string>();
+          messages.forEach(msg => {
+              // Check if we have a mapping for this Matrix ID
+              if (!matrixMapping[msg.senderId]) {
+                  missingIds.add(msg.senderId);
+              }
+          });
+
+          if (missingIds.size > 0) {
+              console.log('Fetching missing identities:', Array.from(missingIds));
+              // Fetch sequentially or parallel
+              for (const mid of missingIds) {
+                  // This will automatically update IdentityStore
+                  await AppRepository.user.getUserByMatrixId(mid);
+              }
+          }
+      };
+      
+      if (messages.length > 0) {
+          fetchMissing();
+      }
+  }, [messages.length, matrixMapping]); // Run when messages change or mapping changes
+
+  // 3. Update Room Name
   useEffect(() => {
     if (roomId) {
       const room = matrixService.rooms.getRoom(roomId);
@@ -83,7 +125,6 @@ export default function ChatRoomScreen() {
         setRoomName(room.name || "Chat");
       }
     } else if (channelId) {
-        // Fallback for initial display
         if (channelId.startsWith('#')) {
             setRoomName(channelId.split(':')[0]);
         }
@@ -93,40 +134,15 @@ export default function ChatRoomScreen() {
   const title = roomName;
 
   const handleSend = async (text: string) => {
-    // Optimistic update
-    const tempId = `local-${Date.now()}`;
-    const currentUser = useAuthStore.getState().user;
-    
-    const newMessage: Message = {
-      id: tempId,
-      text: text,
-      senderId: matrixService.auth.getUserId() || "current-user",
-      senderName: currentUser?.displayName || "Εγώ",
-      senderAvatar: currentUser?.avatarUrl || undefined,
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-
-    // Send to Matrix
     if (roomId) {
-        try {
-            await matrixService.events.sendMessage(roomId, text);
-            console.log('✅ Message sent to Matrix');
-            // The subscription will handle the "sent" confirmation event 
-            // which might replace this optimistic one if IDs match or we handle it
-        } catch (e) {
-            console.error('❌ Failed to send to Matrix:', e);
-            // Optionally mark message as failed in UI
-        }
+        await AppRepository.chat.sendMessage(roomId, text);
+        // Scroll to bottom
+        setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
     } else {
-        console.warn('⚠️ No Matrix Room ID, message locally only');
+        console.warn('⚠️ No Matrix Room ID, cannot send message');
     }
-
-    // Scroll to bottom after sending
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
   };
 
   const handleBack = () => {
@@ -138,7 +154,7 @@ export default function ChatRoomScreen() {
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  }, [messages]);
+  }, [messages.length]);
 
   const handleAvatarPress = (user: { id: string; name: string; avatar?: string }) => {
     setSelectedUser(user);
@@ -151,27 +167,6 @@ export default function ChatRoomScreen() {
   const handleShowProfile = () => {
     console.log("Show Profile clicked for:", selectedUser);
     handleCloseModal();
-  };
-
-  const handleAddFriend = () => {
-    console.log("Add Friend clicked for:", selectedUser);
-    handleCloseModal();
-  };
-
-  const handleSendMessage = async () => {
-    if (!selectedUser) return;
-    console.log("Send Message clicked for:", selectedUser);
-    handleCloseModal();
-
-    // Create or find DM room
-    const dmRoomId = await matrixService.rooms.createDirectChat(selectedUser.id);
-    if (dmRoomId) {
-        // Navigate to the new room
-        // We use push to add to stack, so user can go back
-        router.push(`/community/chat/${dmRoomId}`);
-    } else {
-        alert('Failed to start chat');
-    }
   };
 
   return (
@@ -189,26 +184,71 @@ export default function ChatRoomScreen() {
         behavior="padding"
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        <View style={{ padding: 10, backgroundColor: colors.secondaryBg, alignItems: 'center' }}>
+      <View style={{ padding: 10, backgroundColor: colors.secondaryBg, alignItems: 'center' }}>
         <Text style={{ color: colors.textPrimary }}>Matrix: {matrixStatus}</Text>
       </View>
+
+      {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+      ) : (
       <FlatList
           ref={flatListRef}
-          data={messages}
+          data={[...messages].reverse()} // Reverse data for inverted list
+          inverted={true} // Invert list to stick to bottom
+          alwaysBounceVertical={true} // Allow scrolling even if content is short (iOS)
+          overScrollMode="always" // Allow scrolling even if content is short (Android)
           keyExtractor={(item) => item.id}
+          onMomentumScrollBegin={() => {
+              // User started scrolling
+              canLoadMore.current = true;
+          }}
+          onEndReached={() => {
+              const store = useChatStore.getState();
+              // Check hasMore to prevent useless calls
+              if (roomId && !store.isLoadingHistory && canLoadMore.current && store.hasMore[roomId] !== false) {
+                  console.log("Loading more messages (User Scrolled)...");
+                  canLoadMore.current = false; // Reset to prevent double trigger
+                  AppRepository.chat.loadMoreMessages(roomId);
+              }
+          }}
+          onEndReachedThreshold={0.2} // Reduced sensitivity (20%)
+          ListFooterComponent={() => (
+              useChatStore.getState().isLoadingHistory ? (
+                  <View style={{ padding: 20 }}>
+                      <ActivityIndicator size="small" color={colors.accent} />
+                  </View>
+              ) : null
+          )}
           renderItem={({ item }) => {
             const currentUserId = matrixService.auth.getUserId();
+            
+            // Resolve Sender Name
+            const serverId = matrixMapping[item.senderId];
+            const senderUser = serverId ? identities[serverId] : null;
+            const senderName = senderUser?.displayName || item.senderId;
+            const senderAvatar = senderUser?.avatarUrl;
+
             return (
               <MessageBubble
-                message={item}
+                message={{
+                    id: item.id,
+                    text: item.text,
+                    senderId: item.senderId,
+                    senderName: senderName,
+                    senderAvatar: senderAvatar,
+                    timestamp: new Date(item.timestamp).toISOString(),
+                }}
                 isMe={item.senderId === currentUserId}
                 onAvatarPress={handleAvatarPress}
               />
             );
           }}
           style={styles.flatList}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { flexGrow: 1 }]}
         />
+      )}
         <ChatInput 
           onSend={handleSend} 
           onImagePress={() => console.log("Image button pressed")}
@@ -220,7 +260,6 @@ export default function ChatRoomScreen() {
         onClose={handleCloseModal}
         user={selectedUser}
         onShowProfile={handleShowProfile}
-        onSendMessage={handleSendMessage}
       />
     </View>
   );

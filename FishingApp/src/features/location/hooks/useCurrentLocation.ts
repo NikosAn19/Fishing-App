@@ -1,14 +1,21 @@
 import * as Location from "expo-location";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useCallback } from "react";
+import { useLocationStore } from "../stores/locationStore";
 
 export function useCurrentLocation() {
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const coords = useLocationStore((state) => state.coords);
+  const loading = useLocationStore((state) => state.loading);
+  const error = useLocationStore((state) => state.error);
+  const setCoords = useLocationStore((state) => state.setCoords);
+  const setLoading = useLocationStore((state) => state.setLoading);
+  const setError = useLocationStore((state) => state.setError);
 
   const fetchOnce = useCallback(async () => {
+    // If we already have coords, don't fetch again automatically
+    if (coords) {
+        return;
+    }
+
     setLoading(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -16,18 +23,29 @@ export function useCurrentLocation() {
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-      setError(null);
+      setCoords(pos.coords.latitude, pos.coords.longitude);
     } catch (e: any) {
       setError(e);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+  }, [coords, setLoading, setCoords, setError]);
 
   useEffect(() => {
     fetchOnce();
   }, [fetchOnce]);
 
-  return { coords, loading, error, refetch: fetchOnce };
+  const refetch = useCallback(async () => {
+      setLoading(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") throw new Error("Location permission denied");
+        const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+        });
+        setCoords(pos.coords.latitude, pos.coords.longitude);
+      } catch(e: any) {
+          setError(e);
+      }
+  }, [setLoading, setCoords, setError]);
+
+  return { coords, loading, error, refetch };
 }

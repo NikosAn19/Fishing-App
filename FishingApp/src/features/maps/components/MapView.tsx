@@ -3,6 +3,7 @@ import { View, StyleSheet, Alert, Text, TouchableOpacity } from "react-native";
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocationStore } from "../../location/stores/locationStore";
+import { useCurrentLocation } from "../../location/hooks/useCurrentLocation";
 import { MapViewProps, MapTypeEnum, FavoriteSpot } from "../types/maps";
 import { useResizedImage } from "../hooks/useResizedImage";
 
@@ -28,17 +29,9 @@ export default function FishingMapView({
   // Resize marker image to 100px width
   const resizedMarkerImage = useResizedImage(markerImageSource, 150);
 
-  const {
-    currentLocation,
-    isLoading,
-    error,
-    hasPermission,
-    getCurrentLocation,
-    requestPermissions,
-    setLoading,
-    setError,
-  } = useLocationStore();
-
+  // Use the hook instead of direct store access for logic
+  const { coords: currentLocation, loading: isLoading, error, refetch: getCurrentLocation } = useCurrentLocation();
+  
   // Default region (Athens, Greece) as fallback
   const defaultRegion: Region = {
     latitude: 37.9755,
@@ -48,50 +41,30 @@ export default function FishingMapView({
   };
 
   // Use current location or default region for MapView's initialRegion
-  // We DON'T use initialRegion prop here because we want to animate TO it
-  // If we set it as initialRegion, the map jumps there immediately with no animation
   const mapRegion: Region = currentLocation
     ? {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        latitudeDelta: 0.05, // Zoomed out to show ~5-10km radius
+        latitude: currentLocation.lat, // Note: store uses 'lat', 'lon'
+        longitude: currentLocation.lon,
+        latitudeDelta: 0.05,
         longitudeDelta: 0.05,
       }
     : defaultRegion;
 
   // Simple location initialization
   useEffect(() => {
-    console.log("Component mounted, requesting location...");
-    setLocalLoading(true);
-
-    const timeout = setTimeout(() => {
-      console.log("Location timeout, hiding loading");
-      setLocalLoading(false);
-    }, 5000);
-
-    if (!hasPermission) {
-      requestPermissions().finally(() => {
-        clearTimeout(timeout);
-        setLocalLoading(false);
-      });
-    } else if (!currentLocation) {
-      getCurrentLocation().finally(() => {
-        clearTimeout(timeout);
-        setLocalLoading(false);
-      });
-    } else {
-      clearTimeout(timeout);
-      setLocalLoading(false);
+    console.log("Component mounted, checking location...");
+    
+    if (!currentLocation) {
+        getCurrentLocation().finally(() => {
+            setLocalLoading(false);
+        });
     }
-
-    return () => clearTimeout(timeout);
   }, []);
 
   // Debug effect to monitor state changes
   useEffect(() => {
     console.log("State changed:", {
       isLoading,
-      hasPermission,
       currentLocation: !!currentLocation,
       error,
     });
@@ -102,7 +75,7 @@ export default function FishingMapView({
       setLocalLoading(false); // Ensure local loading is false
       setForceUpdate((prev) => prev + 1);
     }
-  }, [isLoading, hasPermission, currentLocation, error]);
+  }, [isLoading, currentLocation, error]);
 
   // Animate to initialRegion if provided, otherwise to current location when available
   // Combined reset and animation logic to avoid race conditions
@@ -140,8 +113,8 @@ export default function FishingMapView({
     ) {
       // Animate to current location with zoomed out view - only once (when no initialRegion)
       const region: Region = {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
+        latitude: currentLocation.lat,
+        longitude: currentLocation.lon,
         latitudeDelta: 0.05, // Zoomed out view (~5-10km radius)
         longitudeDelta: 0.05,
       };
@@ -180,22 +153,16 @@ export default function FishingMapView({
 
   const retryLocation = async () => {
     console.log("Retrying location...");
-    setError(null);
-    setLocalLoading(true);
-    setLoading(true);
+    if (isLoading) {
+      Alert.alert("Loading", "Fetching location...");
+      return;
+    }
+    setLocalLoading(true); // Set local loading state
 
     try {
-      if (!hasPermission) {
-        console.log("Requesting permissions in retry...");
-        await requestPermissions();
-      } else {
-        console.log("Getting current location in retry...");
-        await getCurrentLocation();
-      }
+      await getCurrentLocation();
     } catch (error) {
       console.log("Retry failed:", error);
-      setError("Location request failed");
-      setLoading(false);
       setLocalLoading(false);
     }
   };
@@ -232,11 +199,11 @@ export default function FishingMapView({
           {currentLocation && (
             <Marker
               coordinate={{
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
+                latitude: currentLocation.lat,
+                longitude: currentLocation.lon,
               }}
               title="Your Location"
-              description={currentLocation.address || "Current location"}
+              description="Current location"
               pinColor="#12dbc0"
             />
           )}
@@ -299,11 +266,11 @@ export default function FishingMapView({
           {currentLocation && (
             <Marker
               coordinate={{
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
+                latitude: currentLocation.lat,
+                longitude: currentLocation.lon,
               }}
               title="Your Location"
-              description={currentLocation.address || "Current location"}
+              description="Current location"
               pinColor="#12dbc0"
             />
           )}
@@ -366,7 +333,7 @@ export default function FishingMapView({
               color="#FF9F7A"
               style={{ marginBottom: 16 }}
             />
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{error.message}</Text>
             <TouchableOpacity
               style={styles.retryButton}
               onPress={retryLocation}

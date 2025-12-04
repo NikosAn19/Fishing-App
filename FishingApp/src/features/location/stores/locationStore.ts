@@ -1,110 +1,21 @@
-import { create } from "zustand";
-import { LocationService } from "../services/locationService";
-import { LocationInfo } from "../../../types";
+import { create } from 'zustand';
 
 interface LocationState {
-  currentLocation: LocationInfo | null;
-  isLoading: boolean;
-  error: string | null;
-  hasPermission: boolean;
-}
-
-interface LocationActions {
-  getCurrentLocation: () => Promise<void>;
-  getLastKnownLocation: () => Promise<void>;
-  requestPermissions: () => Promise<void>;
-  setLocation: (location: LocationInfo) => void;
+  coords: { lat: number; lon: number } | null;
+  loading: boolean;
+  error: Error | null;
+  
+  setCoords: (lat: number, lon: number) => void;
   setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  clearError: () => void;
+  setError: (error: Error | null) => void;
 }
 
-type LocationStore = LocationState & LocationActions;
-
-export const useLocationStore = create<LocationStore>((set, get) => ({
-  // Initial state
-  currentLocation: null,
-  isLoading: false,
+export const useLocationStore = create<LocationState>((set) => ({
+  coords: null,
+  loading: false, // Default to false, let the hook or splash manage it
   error: null,
-  hasPermission: false,
 
-  // Actions
-  getCurrentLocation: async () => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const location = await LocationService.getCurrentLocation();
-      if (location) {
-        set({
-          currentLocation: location,
-          hasPermission: true,
-          isLoading: false,
-        });
-      } else {
-        set({
-          error: "Could not get current location",
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      set({
-        error: "Error getting location",
-        isLoading: false,
-      });
-    }
-  },
-
-  getLastKnownLocation: async () => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const location = await LocationService.getLastKnownLocation();
-      if (location) {
-        set({
-          currentLocation: location,
-          hasPermission: true,
-          isLoading: false,
-        });
-      } else {
-        set({
-          error: "No last known location",
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      set({
-        error: "Error getting last known location",
-        isLoading: false,
-      });
-    }
-  },
-
-  requestPermissions: async () => {
-    try {
-      const granted = await LocationService.requestPermissions();
-      set({ hasPermission: granted });
-      if (granted) {
-        // Automatically get location after permission is granted
-        get().getCurrentLocation();
-      }
-    } catch (error) {
-      set({ error: "Error requesting permissions" });
-    }
-  },
-
-  setLocation: (location: LocationInfo) => {
-    set({ currentLocation: location });
-  },
-
-  setLoading: (loading: boolean) => {
-    set({ isLoading: loading });
-  },
-
-  setError: (error: string | null) => {
-    set({ error });
-  },
-
-  clearError: () => {
-    set({ error: null });
-  },
+  setCoords: (lat, lon) => set({ coords: { lat, lon }, loading: false, error: null }),
+  setLoading: (loading) => set({ loading }),
+  setError: (error) => set({ error, loading: false }),
 }));
