@@ -1,4 +1,7 @@
-import { ChannelGroup, Message, DirectMessage } from "../types/chatTypes";
+import { Channel, ChannelGroup } from "../domain/entities/Channel";
+import { MessageWithSender } from "../domain/entities/Message";
+import { DirectMessage } from "../domain/entities/DirectMessage";
+import { MessageStatus } from "../domain/enums/MessageStatus";
 
 export const MOCK_DIRECT_MESSAGES: DirectMessage[] = [
   {
@@ -117,40 +120,45 @@ export const MOCK_CHANNELS: ChannelGroup[] = [
   },
 ];
 
-export const MOCK_MESSAGES: Message[] = [
+export const MOCK_MESSAGES: MessageWithSender[] = [
   {
     id: "1",
     text: "Καλησπέρα στην παρέα! Έχει πάει κανείς Χαλκιδική;",
     senderId: "user2",
     senderName: "Γιώργος Ψ.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    timestamp: Date.now() - 1000 * 60 * 60 * 2,
+    status: MessageStatus.SENT,
   },
   {
     id: "2",
     text: "Ήμουν εγώ χθες, είχε πολύ αέρα αλλά βγήκαν κάτι λαβράκια.",
     senderId: "user3",
     senderName: "Νίκος Κ.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
+    timestamp: Date.now() - 1000 * 60 * 55,
+    status: MessageStatus.SENT,
   },
   {
     id: "3",
     text: "Σε ποιο μέρος;",
     senderId: "user2",
     senderName: "Γιώργος Ψ.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 50).toISOString(),
+    timestamp: Date.now() - 1000 * 60 * 50,
+    status: MessageStatus.SENT,
   },
   {
     id: "4",
     text: "Κασσάνδρα μεριά, από έξω.",
     senderId: "user3",
     senderName: "Νίκος Κ.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 48).toISOString(),
+    timestamp: Date.now() - 1000 * 60 * 48,
+    status: MessageStatus.SENT,
   },
   {
     id: "5",
     text: "Ωραίος! Θα δοκιμάσω αύριο πρωί.",
     senderId: "me", // Current user
     senderName: "Εγώ",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    timestamp: Date.now() - 1000 * 60 * 5,
+    status: MessageStatus.SENT,
   },
 ];

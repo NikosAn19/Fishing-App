@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import { BackButton } from "../../../../generic/common/BackButton";
 // import { MOCK_DIRECT_MESSAGES } from "../data/mockData";
-import { DirectMessage } from "../types/chatTypes";
+import { DirectMessage } from "../domain/entities/DirectMessage";
 
 import { matrixService } from "../matrix/MatrixService";
 import { Room } from "matrix-js-sdk";

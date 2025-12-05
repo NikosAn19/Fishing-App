@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Hash } from "lucide-react-native";
 import { colors } from "../../../../theme/colors";
-import { Channel } from "../types/chatTypes";
+import { Channel } from "../domain/entities/Channel";
 
 interface ChannelItemProps {
   channel: Channel;

@@ -5,7 +5,7 @@ import { colors } from "../../../../theme/colors";
 
 import { useAuthStore } from "../../../auth/stores/authStore";
 import { AppRepository } from "../../../../repositories";
-import { UserAction } from "../domain/types";
+import { UserAction } from "../domain/enums/UserAction";
 
 interface UserActionModalProps {
   visible: boolean;

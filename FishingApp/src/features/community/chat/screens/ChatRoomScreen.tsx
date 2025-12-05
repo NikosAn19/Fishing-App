@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { BackButton } from "../../../../generic/common/BackButton";
 import { matrixService } from "../matrix/MatrixService";
 import { useIdentityStore } from "../../../auth/stores/IdentityStore";
 import { AppRepository } from "../../../../repositories";
-import { useChatStore } from "../stores/ChatStore";
+import { useChatStore } from "../infrastructure/state/ChatStore";
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -44,7 +44,9 @@ export default function ChatRoomScreen() {
   // 1. Initialize Chat Room
   useEffect(() => {
     const initChat = async () => {
-      if (matrixService.auth.isClientReady()) {
+      const isReady = await AppRepository.chat.initialize();
+      
+      if (isReady) {
         setMatrixStatus('Συνδέθηκε στο Matrix!');
         
         const id = await AppRepository.chat.joinRoom(channelId);
@@ -120,10 +122,13 @@ export default function ChatRoomScreen() {
   // 3. Update Room Name
   useEffect(() => {
     if (roomId) {
-      const room = matrixService.rooms.getRoom(roomId);
-      if (room) {
-        setRoomName(room.name || "Chat");
-      }
+      const fetchRoomName = async () => {
+        const roomDetails = await AppRepository.chat.getRoomDetails(roomId);
+        if (roomDetails) {
+          setRoomName(roomDetails.name);
+        }
+      };
+      fetchRoomName();
     } else if (channelId) {
         if (channelId.startsWith('#')) {
             setRoomName(channelId.split(':')[0]);
@@ -136,9 +141,9 @@ export default function ChatRoomScreen() {
   const handleSend = async (text: string) => {
     if (roomId) {
         await AppRepository.chat.sendMessage(roomId, text);
-        // Scroll to bottom
+        // Scroll to bottom (which is offset 0 in inverted list)
         setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
     } else {
         console.warn('⚠️ No Matrix Room ID, cannot send message');
@@ -149,12 +154,7 @@ export default function ChatRoomScreen() {
     router.back();
   };
 
-  useEffect(() => {
-    // Scroll to bottom on new message
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, [messages.length]);
+
 
   const handleAvatarPress = (user: { id: string; name: string; avatar?: string }) => {
     setSelectedUser(user);
@@ -168,6 +168,9 @@ export default function ChatRoomScreen() {
     console.log("Show Profile clicked for:", selectedUser);
     handleCloseModal();
   };
+
+  // Memoize reversed messages for FlatList
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
   return (
     <View style={styles.container}>
@@ -195,8 +198,9 @@ export default function ChatRoomScreen() {
       ) : (
       <FlatList
           ref={flatListRef}
-          data={[...messages].reverse()} // Reverse data for inverted list
+          data={reversedMessages}
           inverted={true} // Invert list to stick to bottom
+          removeClippedSubviews={false} // Fix for blank spaces in inverted lists
           alwaysBounceVertical={true} // Allow scrolling even if content is short (iOS)
           overScrollMode="always" // Allow scrolling even if content is short (Android)
           keyExtractor={(item) => item.id}
@@ -238,7 +242,8 @@ export default function ChatRoomScreen() {
                     senderId: item.senderId,
                     senderName: senderName,
                     senderAvatar: senderAvatar,
-                    timestamp: new Date(item.timestamp).toISOString(),
+                    timestamp: item.timestamp,
+                    status: item.status,
                 }}
                 isMe={item.senderId === currentUserId}
                 onAvatarPress={handleAvatarPress}

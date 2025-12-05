@@ -3,7 +3,7 @@ import { UserAdapter } from '../adapters/UserAdapter';
 import { useIdentityStore } from '../stores/IdentityStore';
 import { apiFetchJson } from '../../../utils/apiClient';
 import { matrixService } from '../../community/chat/matrix/MatrixService';
-import { UserAction } from '../../community/chat/domain/types';
+import { UserAction } from '../../community/chat/domain/enums/UserAction';
 
 export class UserRepository {
   

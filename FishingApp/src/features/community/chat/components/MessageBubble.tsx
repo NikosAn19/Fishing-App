@@ -1,17 +1,18 @@
 import React from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { colors } from "../../../../theme/colors";
-import { Message } from "../types/chatTypes";
+import { MessageWithSender } from "../domain/entities/Message";
 
 interface MessageBubbleProps {
-  message: Message;
+  message: MessageWithSender;
   isMe: boolean;
   showAvatar?: boolean;
   onAvatarPress?: (user: { id: string; name: string; avatar?: string }) => void;
 }
 
-export default function MessageBubble({ message, isMe, showAvatar = true, onAvatarPress }: MessageBubbleProps) {
-  
+const MessageBubble = React.memo(({ message, isMe, showAvatar = true, onAvatarPress }: MessageBubbleProps) => {
+  const [showTimestamp, setShowTimestamp] = React.useState(false);
+
   const handleAvatarPress = () => {
     if (onAvatarPress) {
       onAvatarPress({
@@ -20,6 +21,10 @@ export default function MessageBubble({ message, isMe, showAvatar = true, onAvat
         avatar: message.senderAvatar
       });
     }
+  };
+
+  const toggleTimestamp = () => {
+    setShowTimestamp(!showTimestamp);
   };
 
   const renderAvatar = () => (
@@ -48,27 +53,36 @@ export default function MessageBubble({ message, isMe, showAvatar = true, onAvat
     <View style={[styles.container, isMe ? styles.containerMe : styles.containerOther]}>
       {!isMe && showAvatar && renderAvatar()}
       
-      <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-        {!isMe && <Text style={styles.senderName}>{message.senderName}</Text>}
-        
-        {message.imageUrl && (
-          <Image source={{ uri: message.imageUrl }} style={styles.messageImage} resizeMode="cover" />
+      <View style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+        {showTimestamp && (
+          <Text style={[styles.timestamp, isMe ? styles.timestampMe : styles.timestampOther]}>
+            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
         )}
 
-        {message.text ? <Text style={styles.text}>{message.text}</Text> : null}
-        
-        <Text style={styles.timestamp}>
-          {new Date(message.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
+        <TouchableOpacity 
+          activeOpacity={0.9} 
+          onPress={toggleTimestamp}
+          style={[
+            styles.bubble, 
+            isMe ? styles.bubbleMe : styles.bubbleOther,
+            !showAvatar && !isMe && { marginLeft: 40 } // Indent if no avatar
+          ]}
+        >
+          {message.imageUrl && (
+            <Image source={{ uri: message.imageUrl }} style={styles.messageImage} resizeMode="cover" />
+          )}
+
+          {message.text ? <Text style={[styles.text, isMe ? styles.textMe : styles.textOther]}>{message.text}</Text> : null}
+        </TouchableOpacity>
       </View>
 
       {isMe && showAvatar && renderAvatar()}
     </View>
   );
-}
+});
+
+export default MessageBubble;
 
 const styles = StyleSheet.create({
   container: {
@@ -107,7 +121,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   bubble: {
-    maxWidth: "75%",
     padding: 10,
     borderRadius: 16,
   },
@@ -119,22 +132,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tertiaryBg,
     borderBottomLeftRadius: 2,
   },
-  senderName: {
-    color: colors.accentSecondary,
-    fontSize: 12,
-    fontWeight: "bold",
-    marginBottom: 2,
-  },
   text: {
-    color: colors.white,
     fontSize: 15,
     lineHeight: 20,
+  },
+  textMe: {
+    color: colors.white,
+  },
+  textOther: {
+    color: colors.white,
   },
   timestamp: {
     color: colors.overlay20,
     fontSize: 10,
-    alignSelf: "flex-end",
-    marginTop: 4,
+    marginBottom: 4,
+    alignSelf: 'center', // Center above the bubble? Or align with bubble edge?
+  },
+  timestampMe: {
+    alignSelf: 'flex-end',
+  },
+  timestampOther: {
+    alignSelf: 'flex-start',
   },
   messageImage: {
     width: 200,
