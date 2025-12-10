@@ -1,12 +1,12 @@
 import { ChatStatePort } from '../../domain/ports/ChatStatePort';
 import { ChatAdapterPort } from '../../domain/ports/ChatAdapterPort';
-import { Message } from '../../domain/entities/Message';
+import { Message, MessageAttachment } from '../../domain/entities/Message';
 import { ChatRoom } from '../../domain/entities/ChatRoom';
 import { DirectMessage } from '../../domain/entities/DirectMessage';
 import { MessageStatus } from '../../domain/enums/MessageStatus';
 import { ChatError } from '../../domain/errors/ChatError';
 import { ChatErrorCode } from '../../domain/enums/ChatErrorCode';
-import { matrixService } from '../../matrix/MatrixService';
+
 
 /**
  * Repository pattern - orchestrates business logic
@@ -27,7 +27,7 @@ export class ChatRepository {
     const tempMsg: Message = {
       id: tempId,
       text,
-      senderId: matrixService.auth.getUserId() || 'me',
+      senderId: this.adapterPort.getCurrentUserId() || 'me',
       status: MessageStatus.SENDING,
       timestamp: Date.now(),
     };
@@ -51,12 +51,18 @@ export class ChatRepository {
    */
   async loadMessages(roomId: string): Promise<void> {
     try {
+      this.statePort.setLoadingHistory(true);
+      // Clear previous messages to prevent "20 messages" bug
+      this.statePort.setMessages(roomId, []); 
+      
       const { messages, hasMore } = await this.adapterPort.fetchInitialMessages(roomId);
       this.statePort.setMessages(roomId, messages);
       this.statePort.setHasMore(roomId, hasMore);
     } catch (error) {
       console.error('ChatRepository: Failed to load messages', error);
       throw new ChatError('Failed to load messages', ChatErrorCode.NETWORK_ERROR, error);
+    } finally {
+      this.statePort.setLoadingHistory(false);
     }
   }
 
@@ -71,7 +77,12 @@ export class ChatRepository {
     console.log(`ChatRepository: Starting loadMoreMessages for ${roomId}`);
     try {
       this.statePort.setLoadingHistory(true);
-      const { messages, hasMore } = await this.adapterPort.loadHistory(roomId);
+      
+      // Get oldest message ID from store to support virtual pagination
+      const currentMessages = this.statePort.getMessages(roomId);
+      const oldestMessageId = currentMessages.length > 0 ? currentMessages[0].id : undefined;
+      
+      const { messages, hasMore } = await this.adapterPort.loadHistory(roomId, oldestMessageId);
 
       console.log(`ChatRepository: Loaded ${messages.length} messages. HasMore: ${hasMore}`);
       this.statePort.prependMessages(roomId, messages);
@@ -99,9 +110,7 @@ export class ChatRepository {
    */
   async joinRoom(channelId: string): Promise<string | null> {
     try {
-      // For now, we still use matrixService directly for room management
-      // In the future, this could be moved to a RoomAdapterPort
-      const roomId = await matrixService.rooms.joinOrOpenChat(channelId);
+      const roomId = await this.adapterPort.joinOrCreateRoom(channelId);
       return roomId;
     } catch (error) {
       console.error('ChatRepository: Failed to join room', error);
@@ -164,5 +173,104 @@ export class ChatRepository {
    */
   subscribeToRoomUpdates(callback: (rooms: ChatRoom[]) => void): () => void {
     return this.adapterPort.subscribeToRoomUpdates(callback);
+  }
+
+  /**
+   * Get current user ID
+   */
+  getCurrentUserId(): string | null {
+    return this.adapterPort.getCurrentUserId();
+  }
+
+  /**
+   * Send a message with optional text and attachments
+   */
+  async sendMessageWithAttachments(
+    roomId: string,
+    text?: string,
+    attachments?: MessageAttachment[]
+  ): Promise<void> {
+    // Validate: must have either text or attachments
+    if (!text && (!attachments || attachments.length === 0)) {
+      throw new ChatError(
+        'Message must have text or attachments',
+        ChatErrorCode.INVALID_MESSAGE
+      );
+    }
+
+    // 1. OPTIMISTIC UPDATE: Show immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Message = {
+      id: tempId,
+      senderId: this.adapterPort.getCurrentUserId() || 'me',
+      status: MessageStatus.SENDING,
+      timestamp: Date.now(),
+      text,
+      attachments,
+    };
+    this.statePort.addMessage(roomId, tempMsg);
+
+    try {
+      // 2. NETWORK CALL: Send to server
+      const eventId = await this.adapterPort.sendMessageWithAttachments(
+        roomId,
+        text,
+        attachments
+      );
+
+      // 3. CONFIRMATION: Update status
+      this.statePort.updateMessageStatus(roomId, tempId, MessageStatus.SENT, eventId);
+    } catch (error) {
+      console.error('ChatRepository: Send failed', error);
+      this.statePort.updateMessageStatus(roomId, tempId, MessageStatus.FAILED);
+      throw new ChatError(
+        'Failed to send message',
+        ChatErrorCode.MESSAGE_SEND_FAILED,
+        error
+      );
+    }
+  }
+
+  /**
+   * Upload media file
+   */
+  async uploadMedia(
+    fileUri: string,
+    type: 'image' | 'video' | 'audio' | 'file'
+  ): Promise<MessageAttachment> {
+    try {
+      return await this.adapterPort.uploadMedia(fileUri, type);
+    } catch (error) {
+      console.error('ChatRepository: Upload failed', error);
+      throw new ChatError('Failed to upload media', ChatErrorCode.UPLOAD_FAILED, error);
+    }
+  }
+
+  /**
+   * Convenience method: Send image with optional caption
+   */
+  async sendImage(roomId: string, imageUri: string, caption?: string): Promise<void> {
+    // 1. Upload image
+    const attachment = await this.uploadMedia(imageUri, 'image');
+    
+    // 2. Send message with attachment
+    await this.sendMessageWithAttachments(roomId, caption, [attachment]);
+  }
+
+  /**
+   * Convenience method: Send multiple images (carousel)
+   */
+  async sendImages(
+    roomId: string,
+    imageUris: string[],
+    caption?: string
+  ): Promise<void> {
+    // 1. Upload all images in parallel
+    const attachments = await Promise.all(
+      imageUris.map(uri => this.uploadMedia(uri, 'image'))
+    );
+    
+    // 2. Send message with all attachments
+    await this.sendMessageWithAttachments(roomId, caption, attachments);
   }
 }

@@ -4,12 +4,8 @@ import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import { BackButton } from "../../../../generic/common/BackButton";
-// import { MOCK_DIRECT_MESSAGES } from "../data/mockData";
 import { DirectMessage } from "../domain/entities/DirectMessage";
-
-import { matrixService } from "../matrix/MatrixService";
-import { Room } from "matrix-js-sdk";
-import { RoomMapper } from "../matrix/utils/RoomMapper";
+import { AppRepository } from "../../../../repositories";
 
 export default function DirectMessagesScreen() {
   const router = useRouter();
@@ -18,27 +14,22 @@ export default function DirectMessagesScreen() {
   const [loading, setLoading] = React.useState(true);
 
   const fetchDMs = async () => {
+    try {
       setLoading(true);
-      const allRooms = matrixService.rooms.getSortedRooms();
-      
-      // Filter for DMs
-      // We need to map Matrix Rooms to our DirectMessage type
-      const dmRooms = allRooms.filter(room => matrixService.rooms.isDirectChat(room));
-
-      const mappedDMs: DirectMessage[] = await Promise.all(dmRooms.map(async (room) => {
-          const me = matrixService.auth.getUserId();
-          if (!me) return null;
-          return RoomMapper.toDirectMessage(room, me);
-      })).then(results => results.filter((dm): dm is DirectMessage => dm !== null));
-
-      setDms(mappedDMs);
+      // Use repository instead of matrixService
+      const directMessages = await AppRepository.chat.fetchDirectMessages();
+      setDms(directMessages);
+    } catch (error) {
+      console.error('Failed to fetch direct messages', error);
+    } finally {
       setLoading(false);
+    }
   };
 
   useFocusEffect(
-      React.useCallback(() => {
-          fetchDMs();
-      }, [])
+    React.useCallback(() => {
+      fetchDMs();
+    }, [])
   );
 
   const handleBack = () => {
@@ -46,7 +37,6 @@ export default function DirectMessagesScreen() {
   };
 
   const handlePress = (dm: DirectMessage) => {
-    // Navigate to chat with this user
     router.push(`/community/chat/${dm.id}`);
   };
 
@@ -110,9 +100,9 @@ export default function DirectMessagesScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-            <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text style={{ color: colors.textSecondary }}>No direct messages yet.</Text>
-            </View>
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: colors.textSecondary }}>No direct messages yet.</Text>
+          </View>
         }
       />
     </View>
@@ -152,9 +142,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(15, 23, 42, 0.4)", // bg-slate-900/40
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
     borderWidth: 1,
-    borderColor: "rgba(30, 41, 59, 0.5)", // border-slate-800/50
+    borderColor: "rgba(30, 41, 59, 0.5)",
     marginBottom: 8,
     marginHorizontal: 16,
   },

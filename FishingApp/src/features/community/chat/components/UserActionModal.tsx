@@ -54,7 +54,7 @@ export default function UserActionModal({
       }
       
       try {
-          await AppRepository.user.performUserAction(userEntity, UserAction.AddFriend);
+          await AppRepository.user.performUserAction(userEntity, UserAction.ADD_FRIEND);
           alert('Friend request sent!');
       } catch (e) {
           console.error(e);
@@ -70,7 +70,7 @@ export default function UserActionModal({
       }
       
       try {
-          const roomId = await AppRepository.user.performUserAction(userEntity, UserAction.Chat);
+          const roomId = await AppRepository.user.performUserAction(userEntity, UserAction.CHAT);
           onClose();
           if (roomId) {
               router.push(`/community/chat/${roomId}`);

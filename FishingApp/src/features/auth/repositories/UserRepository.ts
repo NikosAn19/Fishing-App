@@ -79,7 +79,7 @@ export class UserRepository {
   // ACTION ABSTRACTION
   async performUserAction(user: UserEntity, action: UserAction): Promise<any> {
     switch (action) {
-      case UserAction.Chat:
+      case UserAction.CHAT:
         if (!user.chatId) {
             throw new Error("This user has not activated Chat features.");
         }
@@ -87,15 +87,15 @@ export class UserRepository {
         const roomId = await matrixService.rooms.createDirectChat(user.chatId);
         return roomId;
 
-      case UserAction.Block:
+      case UserAction.BLOCK:
         // ... existing block logic ...
         break;
         
-      case UserAction.ViewProfile:
+      case UserAction.VIEW_PROFILE:
         // ... existing view profile logic ...
         break;
 
-      case UserAction.AddFriend:
+      case UserAction.ADD_FRIEND:
         // ... existing add friend logic ...
         break;
     }

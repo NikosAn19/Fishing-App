@@ -1,6 +1,7 @@
-import { createClient, MatrixClient } from 'matrix-js-sdk';
+import { createClient, MatrixClient, ClientEvent, SyncState, Filter } from 'matrix-js-sdk';
 import { logger } from 'matrix-js-sdk/lib/logger';
 import { API_BASE, DEV_MACHINE_IP } from '../../../../../config/api';
+import { CHAT_FILTER_DEFINITION, MATRIX_CONSTANTS } from '../MatrixConfig';
 
 export class MatrixAuthManager {
   private client: MatrixClient | null = null;
@@ -47,7 +48,15 @@ export class MatrixAuthManager {
   public getUserId(): string | null {
     return this.client ? this.client.getUserId() : null;
   }
-
+  /**
+   * Creates a filter to only fetch messages and essential state events.
+   * This optimizes bandwidth and processing by ignoring irrelevant events.
+   */
+  public createFilter(userId: string): Filter {
+      const filter = new Filter(userId);
+      filter.setDefinition(CHAT_FILTER_DEFINITION);
+      return filter;
+  }
 
   /**
    * Initializes the client with an existing access token.
@@ -63,7 +72,30 @@ export class MatrixAuthManager {
         deviceId: deviceId,
       });
 
-      await this.client.startClient({ initialSyncLimit: 10 });
+      // Wait for sync to be PREPARED (type-safe with SyncState enum)
+      const syncPromise = new Promise<void>((resolve, reject) => {
+        this.client!.once(ClientEvent.Sync, (state: SyncState, prevState: SyncState | null) => {
+          console.log(`🔄 MatrixAuthManager: Sync state changed from ${prevState} to ${state}`);
+          
+          if (state === SyncState.Prepared) {
+            console.log('✅ MatrixAuthManager: Sync PREPARED - client ready');
+            resolve();
+          } else if (state === SyncState.Error) {
+            console.error('❌ MatrixAuthManager: Sync ERROR');
+            reject(new Error('Sync failed'));
+          }
+        });
+      });
+
+      // Create and apply filter for efficient syncing
+      const filter = this.createFilter(userId);
+
+      await this.client.startClient({ 
+          initialSyncLimit: MATRIX_CONSTANTS.BATCH_SIZE, // Match filter limit
+          filter: filter 
+      });
+      await syncPromise;  // Wait for PREPARED state
+      
       console.log('✅ MatrixAuthManager: Session restored successfully');
       return true;
     } catch (error) {
@@ -105,8 +137,14 @@ export class MatrixAuthManager {
         deviceId: loginResponse.device_id,
       });
 
+      // Create and apply filter for efficient syncing
+      const filter = this.createFilter(userId);
+
       // 4. Start the client to begin syncing
-      await this.client.startClient({ initialSyncLimit: 10 });
+      await this.client.startClient({ 
+          initialSyncLimit: MATRIX_CONSTANTS.BATCH_SIZE,
+          filter: filter
+      });
       
       return {
         accessToken: loginResponse.access_token,

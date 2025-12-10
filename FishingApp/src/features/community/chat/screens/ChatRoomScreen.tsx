@@ -14,9 +14,10 @@ import { colors } from "../../../../theme/colors";
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
 import UserActionModal from "../components/UserActionModal";
+import ImageViewerModal from "../components/ImageViewerModal";
 import { BackButton } from "../../../../generic/common/BackButton";
 
-import { matrixService } from "../matrix/MatrixService";
+
 import { useIdentityStore } from "../../../auth/stores/IdentityStore";
 import { AppRepository } from "../../../../repositories";
 import { useChatStore } from "../infrastructure/state/ChatStore";
@@ -33,6 +34,13 @@ export default function ChatRoomScreen() {
   const messages = useChatStore(state => roomId ? (state.messages[roomId] || EMPTY_ARRAY) : EMPTY_ARRAY);
   const matrixMapping = useIdentityStore(state => state.matrixMapping);
   const identities = useIdentityStore(state => state.identities);
+  
+  // DEBUG: Log messages array
+  console.log('💬 Messages in state:', {
+    roomId,
+    messageCount: messages.length,
+    messages: messages.slice(0, 3), // First 3 messages
+  });
   
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
@@ -73,7 +81,9 @@ export default function ChatRoomScreen() {
     if (roomId) {
       // Load initial history
       const load = async () => {
+          console.log('🔄 Loading messages for room:', roomId);
           await AppRepository.chat.loadMessages(roomId);
+          console.log('✅ Messages loaded');
           setIsLoading(false);
       };
       load();
@@ -90,8 +100,7 @@ export default function ChatRoomScreen() {
 
 
 
-  // Momentum Scroll Lock
-  const canLoadMore = useRef(false);
+
 
   // 2.5 Fetch Missing Identities
   useEffect(() => {
@@ -106,16 +115,21 @@ export default function ChatRoomScreen() {
 
           if (missingIds.size > 0) {
               console.log('Fetching missing identities:', Array.from(missingIds));
-              // Fetch sequentially or parallel
-              for (const mid of missingIds) {
-                  // This will automatically update IdentityStore
-                  await AppRepository.user.getUserByMatrixId(mid);
-              }
+              
+              // Parallel fetching for better performance
+              await Promise.all(
+                  Array.from(missingIds).map(mid =>
+                      AppRepository.user.getUserByMatrixId(mid).catch(err => {
+                          console.error(`Failed to fetch identity for ${mid}:`, err);
+                          return null;  // Don't fail entire batch if one fails
+                      })
+                  )
+              );
           }
       };
       
       if (messages.length > 0) {
-          fetchMissing();
+          fetchMissing();  // Don't block rendering
       }
   }, [messages.length, matrixMapping]); // Run when messages change or mapping changes
 
@@ -150,6 +164,19 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const handleSendImage = async (imageUri: string, caption?: string) => {
+    if (!roomId) return;
+    try {
+      await AppRepository.chat.sendImage(roomId, imageUri, caption);
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }, 100);
+    } catch (error) {
+      console.error('Failed to send image', error);
+    }
+  };
+
   const handleBack = () => {
     router.back();
   };
@@ -171,6 +198,33 @@ export default function ChatRoomScreen() {
 
   // Memoize reversed messages for FlatList
   const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  // Image Viewer State
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
+  // Collect all images from messages for the gallery
+  // We want chronological order for the gallery (Oldest -> Newest)
+  const allImageUrls = useMemo(() => {
+    const urls: string[] = [];
+    // Iterate chronological messages
+    messages.forEach(msg => {
+      msg.attachments?.forEach((att: any) => { // Use explicit any or MessageAttachment if imported
+        if (att.type === 'image') {
+          urls.push(att.url);
+        }
+      });
+    });
+    return urls;
+  }, [messages]);
+
+  const handleImagePress = (imageUrl: string) => {
+    const index = allImageUrls.indexOf(imageUrl);
+    if (index !== -1) {
+      setViewerIndex(index);
+      setIsViewerVisible(true);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -204,20 +258,27 @@ export default function ChatRoomScreen() {
           alwaysBounceVertical={true} // Allow scrolling even if content is short (iOS)
           overScrollMode="always" // Allow scrolling even if content is short (Android)
           keyExtractor={(item) => item.id}
-          onMomentumScrollBegin={() => {
-              // User started scrolling
-              canLoadMore.current = true;
-          }}
           onEndReached={() => {
               const store = useChatStore.getState();
-              // Check hasMore to prevent useless calls
-              if (roomId && !store.isLoadingHistory && canLoadMore.current && store.hasMore[roomId] !== false) {
-                  console.log("Loading more messages (User Scrolled)...");
-                  canLoadMore.current = false; // Reset to prevent double trigger
+              console.log('🔝 onEndReached triggered!', {
+                roomId,
+                isLoadingHistory: store.isLoadingHistory,
+                hasMore: roomId ? store.hasMore[roomId] : undefined,
+              });
+              
+              // Simplified check - only 3 conditions
+              if (roomId && !store.isLoadingHistory && store.hasMore[roomId] !== false) {
+                  console.log("📚 Loading more messages...");
                   AppRepository.chat.loadMoreMessages(roomId);
+              } else {
+                  console.log("⏸️ Pagination blocked:", {
+                    noRoomId: !roomId,
+                    isLoading: store.isLoadingHistory,
+                    noMore: roomId ? store.hasMore[roomId] === false : 'no roomId',
+                  });
               }
           }}
-          onEndReachedThreshold={0.2} // Reduced sensitivity (20%)
+          onEndReachedThreshold={0.5} // Trigger when 50% from end (more sensitive)
           ListFooterComponent={() => (
               useChatStore.getState().isLoadingHistory ? (
                   <View style={{ padding: 20 }}>
@@ -226,13 +287,22 @@ export default function ChatRoomScreen() {
               ) : null
           )}
           renderItem={({ item }) => {
-            const currentUserId = matrixService.auth.getUserId();
+            const currentUserId = AppRepository.chat.getCurrentUserId();
             
             // Resolve Sender Name
             const serverId = matrixMapping[item.senderId];
             const senderUser = serverId ? identities[serverId] : null;
             const senderName = senderUser?.displayName || item.senderId;
             const senderAvatar = senderUser?.avatarUrl;
+
+            // DEBUG: Log message to see what we're getting
+            console.log('📨 Rendering message:', {
+              id: item.id,
+              text: item.text,
+              hasText: !!item.text,
+              senderId: item.senderId,
+              attachments: item.attachments,
+            });
 
             return (
               <MessageBubble
@@ -244,9 +314,11 @@ export default function ChatRoomScreen() {
                     senderAvatar: senderAvatar,
                     timestamp: item.timestamp,
                     status: item.status,
+                    attachments: item.attachments,
                 }}
                 isMe={item.senderId === currentUserId}
                 onAvatarPress={handleAvatarPress}
+                onImagePress={handleImagePress}
               />
             );
           }}
@@ -256,7 +328,7 @@ export default function ChatRoomScreen() {
       )}
         <ChatInput 
           onSend={handleSend} 
-          onImagePress={() => console.log("Image button pressed")}
+          onSendImage={handleSendImage}
         />
       </KeyboardAvoidingView>
 
@@ -265,6 +337,13 @@ export default function ChatRoomScreen() {
         onClose={handleCloseModal}
         user={selectedUser}
         onShowProfile={handleShowProfile}
+      />
+
+      <ImageViewerModal
+        visible={isViewerVisible}
+        imageUrls={allImageUrls}
+        initialIndex={viewerIndex}
+        onClose={() => setIsViewerVisible(false)}
       />
     </View>
   );

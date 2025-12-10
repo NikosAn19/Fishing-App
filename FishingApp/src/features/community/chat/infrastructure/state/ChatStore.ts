@@ -116,12 +116,21 @@ export const useChatStore = create<ChatState>((set) => ({
         (newMsg) => !currentMessages.some((existingMsg) => existingMsg.id === newMsg.id)
       );
 
-      if (uniqueNewMessages.length === 0) return state;
+      if (uniqueNewMessages.length === 0) {
+        console.log(`📝 ChatStore: No new messages to add (all ${newMessages.length} were duplicates)`);
+        return state;
+      }
+
+      // Combine and limit to prevent memory issues
+      const combined = [...uniqueNewMessages, ...currentMessages];
+      const limited = combined.slice(0, 200);  // Keep max 200 messages
+      
+      console.log(`📝 ChatStore: Added ${uniqueNewMessages.length} new messages (${currentMessages.length} → ${limited.length})`);
 
       return {
         messages: {
           ...state.messages,
-          [roomId]: [...uniqueNewMessages, ...currentMessages],
+          [roomId]: limited,
         },
       };
     }),

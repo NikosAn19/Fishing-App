@@ -1,148 +1,99 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
-import { Room, RoomEvent, NotificationCountType } from "matrix-js-sdk";
 import { colors } from "../../../../theme/colors";
-import { matrixService } from "../matrix/MatrixService";
+import { AppRepository } from "../../../../repositories";
+import { ChatRoom } from "../domain/entities/ChatRoom";
+import { ChatRoomType } from "../domain/enums/ChatRoomType";
 
 interface RoomListProps {
   filter?: 'direct' | 'channel' | 'all';
 }
 
-import { chatApi, PublicChannel } from "../matrix/api/client";
-
 export default function RoomList({ filter = 'all' }: RoomListProps) {
   const router = useRouter();
-  const [rooms, setRooms] = useState<Room[]>([]);
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchRooms = async () => {
-      const allMatrixRooms = matrixService.rooms.getSortedRooms();
-      let publicChannels: PublicChannel[] = [];
-      
-      if (filter === 'channel' || filter === 'all') {
-          publicChannels = await chatApi.getPublicChannels();
+      try {
+        setLoading(true);
+        
+        // Use repository instead of matrixService
+        const allRooms = await AppRepository.chat.fetchPublicRooms();
+        
+        // Filter based on type
+        const filtered = filter === 'all' 
+          ? allRooms
+          : allRooms.filter(room => {
+              if (filter === 'direct') return room.type === ChatRoomType.DIRECT;
+              if (filter === 'channel') return room.type === ChatRoomType.CHANNEL;
+              return true;
+            });
+        
+        setRooms(filtered);
+      } catch (error) {
+        console.error('Failed to fetch rooms', error);
+      } finally {
+        setLoading(false);
       }
-      
-      // Map Matrix rooms to a common structure or just use them
-      // We need to merge "backend public channels" with "joined matrix rooms"
-      
-      // 1. Get joined room IDs
-      const joinedRoomIds = new Set(allMatrixRooms.map(r => r.roomId));
-      
-      // 2. Filter Matrix rooms based on props
-      const filteredMatrixRooms = allMatrixRooms.filter(room => {
-        const isDirect = matrixService.rooms.isDirectChat(room);
-        if (filter === 'direct') return isDirect;
-        if (filter === 'channel') return !isDirect;
-        return true;
-      });
-
-      // 3. Create "Room-like" objects for public channels we haven't joined yet
-      const unjoinedChannels = publicChannels
-        .filter(c => !joinedRoomIds.has(c.matrixRoomId))
-        .map(c => ({
-            roomId: c.matrixRoomId,
-            name: c.name,
-            // Mocking Room methods/properties for display
-            getLastActiveTimestamp: () => 0,
-            timeline: [],
-            getAvatarUrl: () => null,
-            getUnreadNotificationCount: () => 0,
-            isUnjoined: true, // Flag to indicate it's not joined
-        } as any as Room));
-
-      // 4. Combine
-      // If filter is direct, we only show matrix rooms (assuming backend doesn't list all DMs)
-      // If filter is channel or all, we append unjoined channels
-      let finalRooms = [...filteredMatrixRooms];
-      if (filter !== 'direct') {
-          finalRooms = [...finalRooms, ...unjoinedChannels];
-      }
-      
-      // Sort: Joined rooms by activity, then unjoined by name?
-      // Or just put unjoined at the bottom
-      finalRooms.sort((a, b) => {
-          const aTime = a.getLastActiveTimestamp?.() || 0;
-          const bTime = b.getLastActiveTimestamp?.() || 0;
-          if (aTime !== bTime) return bTime - aTime;
-          return (a.name || '').localeCompare(b.name || '');
-      });
-
-      setRooms(finalRooms);
-      setLoading(false);
     };
 
-    // Initial fetch
     fetchRooms();
-
-    // Subscribe to updates
-    const client = matrixService.auth.getClient();
-    if (client) {
-        const handleTimeline = () => {
-            fetchRooms();
-        };
-        client.on(RoomEvent.Timeline, handleTimeline);
-        // Also listen for room join events to update list
-        client.on(RoomEvent.MyMembership, fetchRooms);
-        
-        return () => {
-            client.removeListener(RoomEvent.Timeline, handleTimeline);
-            client.removeListener(RoomEvent.MyMembership, fetchRooms);
-        };
-    }
+    
+    // Subscribe to updates using repository
+    const unsubscribe = AppRepository.chat.subscribeToRoomUpdates((updatedRooms) => {
+      const filtered = filter === 'all'
+        ? updatedRooms
+        : updatedRooms.filter(room => {
+            if (filter === 'direct') return room.type === ChatRoomType.DIRECT;
+            if (filter === 'channel') return room.type === ChatRoomType.CHANNEL;
+            return true;
+          });
+      setRooms(filtered);
+    });
+    
+    return unsubscribe;
   }, [filter]);
 
   const handlePress = (roomId: string) => {
     router.push(`/community/chat/${encodeURIComponent(roomId)}`);
   };
 
-  const renderItem = ({ item }: { item: Room }) => {
-    const lastEvent = item.getLastActiveTimestamp();
-    const lastMessageEvent = item.timeline[item.timeline.length - 1];
-    const lastMessageText = lastMessageEvent?.getContent()?.body || "No messages yet";
-    const name = item.name || "Unknown Room";
-    const avatarUrl = item.getAvatarUrl(matrixService.auth.getClient()?.getHomeserverUrl() || "", 40, 40, "crop");
-    const unreadCount = item.getUnreadNotificationCount(NotificationCountType.Total);
-
+  const renderItem = ({ item }: { item: ChatRoom }) => {
     return (
       <TouchableOpacity 
         style={styles.itemContainer} 
-        onPress={() => handlePress(item.roomId)}
+        onPress={() => handlePress(item.id)}
         activeOpacity={0.9}
       >
         <View style={styles.leftContent}>
           <View style={styles.avatarContainer}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            {item.avatarUrl ? (
+              <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarText}>
-                  {name.charAt(0).toUpperCase()}
+                  {item.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
           </View>
           
           <View style={styles.textContainer}>
-            <Text style={styles.name}>{name}</Text>
+            <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.lastMessage} numberOfLines={1}>
-              {lastMessageText}
+              {item.type === ChatRoomType.CHANNEL ? 'Channel' : 'Direct Message'}
             </Text>
           </View>
         </View>
 
         <View style={styles.rightContent}>
-          {lastEvent && lastEvent > 0 && (
-            <Text style={styles.timestamp}>
-              {new Date(lastEvent).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </Text>
-          )}
-          {unreadCount > 0 && (
+          {item.unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                {unreadCount > 99 ? "99+" : unreadCount}
+                {item.unreadCount > 99 ? "99+" : item.unreadCount}
               </Text>
             </View>
           )}
@@ -152,21 +103,21 @@ export default function RoomList({ filter = 'all' }: RoomListProps) {
   };
 
   if (loading) {
-      return <ActivityIndicator size="small" color={colors.accent} />;
+    return <ActivityIndicator size="small" color={colors.accent} />;
   }
 
   if (rooms.length === 0) {
-      return (
-          <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No chats found.</Text>
-          </View>
-      );
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No chats found.</Text>
+      </View>
+    );
   }
 
   return (
     <FlatList
       data={rooms}
-      keyExtractor={(item) => item.roomId}
+      keyExtractor={(item) => item.id}
       renderItem={renderItem}
       contentContainerStyle={styles.listContent}
       scrollEnabled={false}
@@ -184,9 +135,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "rgba(15, 23, 42, 0.4)", // bg-slate-900/40
+    backgroundColor: "rgba(15, 23, 42, 0.4)",
     borderWidth: 1,
-    borderColor: "rgba(30, 41, 59, 0.5)", // border-slate-800/50
+    borderColor: "rgba(30, 41, 59, 0.5)",
     marginBottom: 8,
     marginHorizontal: 16,
   },
@@ -234,12 +185,7 @@ const styles = StyleSheet.create({
   },
   rightContent: {
     alignItems: "flex-end",
-    justifyContent: "space-between",
-    height: 40,
-  },
-  timestamp: {
-    color: colors.textTertiary,
-    fontSize: 11,
+    justifyContent: "center",
   },
   badge: {
     backgroundColor: colors.palette.emerald[500],
@@ -256,11 +202,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   emptyContainer: {
-      padding: 20,
-      alignItems: 'center',
+    padding: 20,
+    alignItems: 'center',
   },
   emptyText: {
-      color: colors.textTertiary,
-      fontSize: 14,
+    color: colors.textTertiary,
+    fontSize: 14,
   }
 });

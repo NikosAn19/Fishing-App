@@ -43,14 +43,6 @@ class MatrixService {
           const serverName = mxcUrl.split('/')[2];
           const accessToken = client.getAccessToken();
           const baseUrl = client.baseUrl;
-
-          // If width/height are provided, we could use the thumbnail endpoint, 
-          // but for now let's stick to the download endpoint as requested/verified in EventMapper
-          // or we can try to support both if needed. 
-          // The user specifically pointed to EventMapper which uses /download.
-          // However, for avatars, thumbnails are usually better.
-          // But if /thumbnail is failing 404, maybe /download works better with auth?
-          // Let's use /download as per EventMapper reference to be safe and fix the 404.
           
           return `${baseUrl}/_matrix/client/v1/media/download/${serverName}/${mediaId}?access_token=${accessToken}`;
       }

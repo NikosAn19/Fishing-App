@@ -9,13 +9,15 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
+import * as ImagePicker from 'expo-image-picker';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
+  onSendImage?: (imageUri: string, caption?: string) => void;
   onImagePress?: () => void;
 }
 
-export default function ChatInput({ onSend, onImagePress }: ChatInputProps) {
+export default function ChatInput({ onSend, onSendImage, onImagePress }: ChatInputProps) {
   const [text, setText] = useState("");
   const insets = useSafeAreaInsets();
 
@@ -23,6 +25,30 @@ export default function ChatInput({ onSend, onImagePress }: ChatInputProps) {
     if (text.trim().length === 0) return;
     onSend(text.trim());
     setText("");
+  };
+
+  const handleImagePick = async () => {
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Sorry, we need camera roll permissions!');
+      return;
+    }
+    
+    // Pick image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    
+    if (!result.canceled && result.assets[0] && onSendImage) {
+      const imageUri = result.assets[0].uri;
+      // Send image with current text as caption
+      onSendImage(imageUri, text || undefined);
+      setText(''); // Clear text after sending
+    }
   };
 
   return (
@@ -33,7 +59,7 @@ export default function ChatInput({ onSend, onImagePress }: ChatInputProps) {
       </TouchableOpacity>
 
       {/* Image Button */}
-      <TouchableOpacity style={styles.iconButton} onPress={onImagePress}>
+      <TouchableOpacity style={styles.iconButton} onPress={onImagePress || handleImagePick}>
         <Ionicons name="image" size={24} color={colors.textSecondary} />
       </TouchableOpacity>
       
