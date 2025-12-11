@@ -13,6 +13,7 @@ import { colors } from "../../theme/colors";
 import HamburgerMenu from "./HamburgerMenu";
 import ProfileDropdown from "./ProfileDropdown";
 import { useAuth } from "../../features/auth/hooks/useAuth";
+import { useChatStore } from "../../features/community/chat/infrastructure/state/ChatStore";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -37,6 +38,8 @@ export default function BottomMenu({
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
   const profileButtonRef = useRef<View>(null);
   const { user, logout } = useAuth();
+  const totalUnreadCount = useChatStore((state) => state.totalUnreadCount);
+  console.log('[BottomMenu] Rendering. TotalUnreadCount:', totalUnreadCount);
 
   const handleMenuPress = () => {
     setIsMenuVisible(true);
@@ -104,11 +107,20 @@ export default function BottomMenu({
           onPress={onChatPress}
           disabled={!onChatPress}
         >
-          <Ionicons
-            name="people"
-            size={24}
-            color={currentScreen?.startsWith("/community") ? colors.accent : colors.white}
-          />
+          <View>
+            <Ionicons
+              name="people"
+              size={24}
+              color={currentScreen?.startsWith("/community") ? colors.accent : colors.white}
+            />
+            {totalUnreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text
             style={[
               styles.buttonText,
@@ -261,5 +273,24 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 12,
     fontWeight: "700",
+  },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: -3,
+    backgroundColor: '#FF3B30', // Standard red for badges
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBg, // Match background to create "cutout" effect
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
   },
 });

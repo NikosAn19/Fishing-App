@@ -6,13 +6,15 @@ import { colors } from "../../theme/colors";
 import StoriesRow from "./stories/components/StoriesRow";
 import { MOCK_STORIES } from "./stories/data/mockData";
 import RoomList from "./chat/components/RoomList";
-import { chatApi, PublicChannel } from "./chat/matrix/api/client";
+import { AppRepository } from "../../repositories";
 import RegionAccordion from "./chat/components/RegionAccordion";
+import { useChatStore } from "./chat/infrastructure/state/ChatStore";
+// Import PublicChannel type locally or from API if needed for typing, but we are mapping from manually now.
+import { PublicChannel } from "./chat/matrix/api/client";
 
 export default function CommunityHomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [publicChannels, setPublicChannels] = React.useState<PublicChannel[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -21,8 +23,8 @@ export default function CommunityHomeScreen() {
 
   const loadChannels = async () => {
     try {
-      const channels = await chatApi.getPublicChannels();
-      setPublicChannels(channels);
+      // Use repository to sync channels (DB + Matrix)
+      await AppRepository.chat.syncChannels();
     } catch (error) {
       console.error("Failed to load public channels:", error);
     } finally {
@@ -42,11 +44,16 @@ export default function CommunityHomeScreen() {
     router.push("/community/direct-messages"); 
   };
 
+  const { rooms } = useChatStore();
+
   // Group channels by region
   const groupedChannels = React.useMemo(() => {
     const groups: { [key: string]: PublicChannel[] } = {};
     
-    publicChannels.forEach(channel => {
+    // Convert store rooms to array and filter for channels
+    const allChannels = Object.values(rooms).filter(r => r.type === 'channel'); // ChatRoomType.CHANNEL literal
+
+    allChannels.forEach(channel => {
       // Parse "Region - Technique"
       const parts = channel.name.split(' - ');
       const regionName = parts.length > 1 ? parts[0] : 'General';
@@ -54,14 +61,24 @@ export default function CommunityHomeScreen() {
       if (!groups[regionName]) {
         groups[regionName] = [];
       }
-      groups[regionName].push(channel);
+      
+      // Adapt ChatRoom to PublicChannel + unreadCount
+      const channelWithUnread = {
+         _id: channel.id, // Adaptation
+         matrixRoomId: channel.id,
+         name: channel.name,
+         participants: [], // Not needed for display
+         unreadCount: channel.unreadCount || 0
+      };
+      
+      groups[regionName].push(channelWithUnread);
     });
 
     return Object.entries(groups).map(([regionName, channels]) => ({
       regionName,
       channels
     }));
-  }, [publicChannels]);
+  }, [rooms]);
 
   return (
     <View style={styles.container}>

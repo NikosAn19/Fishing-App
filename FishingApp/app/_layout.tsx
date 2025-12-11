@@ -7,9 +7,12 @@ import { Stack, useRouter, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, StyleSheet } from "react-native";
 import { useState, useEffect, useRef } from "react";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+// Removed AppRepository (unused)
+// Removed useChatStore (unused now)
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-// import GlobalHeader from "../src/generic/layout/GlobalHeader"; // Disabled - moved to BottomMenu
 import BottomMenu from "../src/generic/layout/BottomMenu";
 import FactSplashScreen from "../src/features/splash/screens/FactSplashScreen";
 import { useAuth } from "../src/features/auth/hooks/useAuth";
@@ -20,6 +23,18 @@ import { colors } from "../src/theme/colors";
 import { usePushNotifications } from "../src/hooks/usePushNotifications";
 import { useAuthStore } from "../src/features/auth/stores/authStore";
 import { useLocationStore } from "../src/features/location/stores/locationStore";
+import { notificationManager } from "../src/features/notifications";
+import { useChatNotifications } from "../src/features/notifications/hooks/useChatNotifications";
+
+// Configure notifications to show even when app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
   const router = useRouter();
@@ -36,18 +51,30 @@ export default function RootLayout() {
   // Push Notifications
   const { expoPushToken, registerTokenWithBackend } = usePushNotifications();
 
+  // New: Use extracted hook for In-App Chat Notifications
+  useChatNotifications({ authStatus: status });
+
+  // Push Notifications Setup (Existing)
+  
+
+
+  // Push Notifications Setup (Existing)
   useEffect(() => {
     if (status === AuthStatus.AUTHENTICATED && expoPushToken) {
-        // We need the access token here. Since useAuth doesn't expose it directly in the hook return,
-        // we might need to get it from the store or assume the hook handles it if we pass nothing?
-        // Checking usePushNotifications again... it takes (token, accessToken).
-        // We need to get the accessToken from the store.
         const accessToken = useAuthStore.getState().accessToken;
         if (accessToken) {
             registerTokenWithBackend(accessToken);
         }
     }
   }, [status, expoPushToken]);
+
+  // Handle Notification Tap
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      notificationManager.handleNotificationResponse(response, router);
+    });
+    return () => subscription.remove();
+  }, [router]);
 
   useEffect(() => {
     bootstrapSession();
@@ -60,33 +87,29 @@ export default function RootLayout() {
       forecastFetchedRef.current = true;
 
       try {
+        // Permissions...
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
           const pos = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
           
-          // Save to Location Store for instant access in Home Screen
           useLocationStore.getState().setCoords(pos.coords.latitude, pos.coords.longitude);
 
-          // Fetch and cache forecast (won't fetch if cache is valid)
           await forecastActions.fetchAndCache(
             pos.coords.latitude,
             pos.coords.longitude
           );
           setForecastReady(true);
         } else {
-          // No location permission, mark as ready anyway
           setForecastReady(true);
         }
       } catch (error) {
-        // Silently fail - forecast will be fetched when needed
         console.log("🌊 Could not fetch forecast during splash:", error);
-        setForecastReady(true); // Mark as ready even on error
+        setForecastReady(true);
       }
     };
 
-    // Fetch favorite spots if user is authenticated
     const fetchFavoriteSpotsOnSplash = async () => {
       if (favoriteSpotsFetchedRef.current) return;
       if (status === AuthStatus.AUTHENTICATED) {
@@ -95,7 +118,6 @@ export default function RootLayout() {
           await favoriteSpotsActions.syncFromBackend();
         } catch (error) {
           console.error("Error fetching favorite spots:", error);
-          // Don't block app startup on favorite spots error
         }
       }
     };
@@ -105,9 +127,8 @@ export default function RootLayout() {
   }, [forecastActions, favoriteSpotsActions, status]);
 
   useEffect(() => {
-    // Hide splash screen after animation AND forecast is ready (or max 5 seconds)
-    const minSplashTime = 2000; // Minimum splash time (animation duration)
-    const maxSplashTime = 5000; // Maximum splash time (don't wait forever)
+    const minSplashTime = 2000;
+    const maxSplashTime = 5000;
     const startTime = Date.now();
 
     const checkAndHideSplash = () => {
@@ -118,12 +139,10 @@ export default function RootLayout() {
       if (shouldHide || mustHide) {
         setShowSplash(false);
       } else {
-        // Check again in 100ms
         setTimeout(checkAndHideSplash, 100);
       }
     };
 
-    // Start checking after minimum splash time
     const timer = setTimeout(checkAndHideSplash, minSplashTime);
     return () => clearTimeout(timer);
   }, [forecastReady]);
@@ -140,33 +159,17 @@ export default function RootLayout() {
     }
   }, [status, pathname, router, showSplash]);
 
-  const handleHomePress = () => {
-    router.push("/");
-  };
+  const handleHomePress = () => router.push("/");
+  const handleMapPress = () => router.push("/map");
+  const handleFishPress = () => router.push("/camera");
+  const handleChatPress = () => router.push("/community");
 
-  const handleMapPress = () => {
-    router.push("/map");
-  };
-
-  const handleFishPress = () => {
-    router.push("/camera");
-  };
-
-  const handleChatPress = () => {
-    router.push("/community");
-  };
-
-  // Hide header and bottom menu for camera, review screens, and splash screen
   const isCameraScreen = pathname === "/camera" || pathname === "/review";
-  // Hide only bottom menu for guide screens
   const isGuideScreen = pathname === "/guide/species";
-  // Hide bottom menu for profile-related screens
   const isProfileScreen = pathname === "/adventures";
-  // Hide bottom menu for chat room (but show for channel list)
   const isChatRoom = pathname.startsWith("/community/chat/") || pathname.startsWith("/community/direct-messages");
 
   const isAuthenticated = status === AuthStatus.AUTHENTICATED;
-  // const showHeader = !isCameraScreen && !showSplash && isAuthenticated; // Disabled - moved to BottomMenu
   const showBottomMenu =
     !isCameraScreen &&
     !isGuideScreen &&
@@ -200,8 +203,6 @@ export default function RootLayout() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
       <>
-        {/* {showHeader && <GlobalHeader />} */}
-        {/* Disabled - moved to BottomMenu */}
         <Stack screenOptions={{ headerShown: false }} />
         {showBottomMenu && (
           <BottomMenu

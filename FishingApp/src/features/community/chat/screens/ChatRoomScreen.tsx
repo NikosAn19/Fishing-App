@@ -83,6 +83,7 @@ export default function ChatRoomScreen() {
       const load = async () => {
           console.log('🔄 Loading messages for room:', roomId);
           await AppRepository.chat.loadMessages(roomId);
+          await AppRepository.chat.markAsRead(roomId); // Clear unread count on entry
           console.log('✅ Messages loaded');
           setIsLoading(false);
       };

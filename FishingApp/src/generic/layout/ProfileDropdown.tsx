@@ -16,6 +16,8 @@ import {
   ProfileMenuItemType,
 } from "../../features/profile/types/profile";
 
+import { useAuthStore } from "../../features/auth/stores/authStore";
+
 interface ProfileDropdownProps {
   visible: boolean;
   onClose: () => void;
@@ -31,6 +33,12 @@ export default function ProfileDropdown({
 }: ProfileDropdownProps) {
   const router = useRouter();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const { user } = useAuthStore();
+  
+  // Calculate pending requests count
+  const pendingRequestsCount = React.useMemo(() => {
+    return user?.friends?.filter(f => f.status === 'pending').length || 0;
+  }, [user?.friends]);
 
   React.useEffect(() => {
     if (visible) {
@@ -98,6 +106,16 @@ export default function ProfileDropdown({
                   style={styles.icon}
                 />
                 <Text style={styles.label}>{item.label}</Text>
+                
+                {/* Notification Badge */}
+                {item.type === ProfileMenuItemType.NOTIFICATIONS && pendingRequestsCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+                    </Text>
+                  </View>
+                )}
+
                 <Ionicons
                   name="chevron-forward"
                   size={16}
@@ -171,5 +189,20 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.overlay10,
     marginHorizontal: 20,
+  },
+  badge: {
+    backgroundColor: '#EF4444', 
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+    minWidth: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });

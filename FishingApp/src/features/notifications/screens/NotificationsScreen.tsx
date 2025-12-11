@@ -46,6 +46,31 @@ export default function NotificationsScreen() {
       }
   };
 
+  const handleDecline = async (requesterId: string) => {
+      if (!accessToken) return;
+      setLoading(true);
+      try {
+          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/friends/reject`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({ requesterId })
+          });
+          
+          if (response.ok) {
+              await refreshUser();
+          } else {
+              console.error('Failed to reject request');
+          }
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const pendingRequests = user?.friends?.filter(f => f.status === 'pending') || [];
 
   const renderItem = ({ item }: { item: Friend }) => (
@@ -72,7 +97,11 @@ export default function NotificationsScreen() {
         >
           <Text style={styles.buttonText}>Accept</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.declineButton]}>
+        <TouchableOpacity 
+            style={[styles.button, styles.declineButton]}
+            onPress={() => handleDecline(item.id)}
+            disabled={loading}
+        >
           <Text style={[styles.buttonText, styles.declineText]}>Decline</Text>
         </TouchableOpacity>
       </View>

@@ -46,6 +46,18 @@ export class ZustandStateAdapter implements ChatStatePort {
     useChatStore.getState().setRooms(rooms);
   }
 
+  setUnreadCount(roomId: string, count: number): void {
+    useChatStore.getState().setUnreadCount(roomId, count);
+  }
+
+  incrementUnread(roomId: string): void {
+    useChatStore.getState().incrementUnread(roomId);
+  }
+
+  clearUnread(roomId: string): void {
+    useChatStore.getState().clearUnread(roomId);
+  }
+
   getMessages(roomId: string): Message[] {
     return useChatStore.getState().messages[roomId] || [];
   }

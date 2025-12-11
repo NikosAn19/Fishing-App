@@ -26,6 +26,11 @@ export interface ChatStatePort {
   setActiveRoom(roomId: string | null): void;
   setRooms(rooms: ChatRoom[]): void;
   
+  // Unread
+  setUnreadCount(roomId: string, count: number): void;
+  incrementUnread(roomId: string): void;
+  clearUnread(roomId: string): void;
+  
   // Getters
   getMessages(roomId: string): Message[];
   getIsLoadingHistory(): boolean;

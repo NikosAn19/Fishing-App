@@ -18,6 +18,7 @@ import { CHAT_FILTER_DEFINITION, MATRIX_CONSTANTS } from '../../matrix/MatrixCon
 export class MatrixChatAdapter implements ChatAdapterPort {
   private paginationService: PaginationService;
   private eventRegistry: EventHandlerRegistry;
+  private processedEventIds: Set<string> = new Set();
 
   constructor(private client: MatrixClient) {
     this.paginationService = new PaginationService(client);
@@ -183,13 +184,21 @@ export class MatrixChatAdapter implements ChatAdapterPort {
   async fetchPublicRooms(): Promise<ChatRoom[]> {
     const response = await this.client.publicRooms({});
     
-    return response.chunk.map(room => ({
-      id: room.room_id,
-      name: room.name || 'Unnamed Room',
-      type: ChatRoomType.CHANNEL,
-      avatarUrl: room.avatar_url,
-      unreadCount: 0,
-    }));
+    return response.chunk.map(chunk => {
+      // Try to find the actual joined room object to get unread counts
+      const realRoom = this.client.getRoom(chunk.room_id);
+      const unreadCount = realRoom 
+        ? realRoom.getUnreadNotificationCount(NotificationCountType.Total) 
+        : 0; // If not joined/found, 0 unreads
+
+      return {
+        id: chunk.room_id,
+        name: chunk.name || 'Unnamed Room',
+        type: ChatRoomType.CHANNEL,
+        avatarUrl: chunk.avatar_url,
+        unreadCount,
+      };
+    });
   }
 
   async fetchDirectMessages(): Promise<DirectMessage[]> {
@@ -238,6 +247,28 @@ export class MatrixChatAdapter implements ChatAdapterPort {
   async joinOrCreateRoom(channelId: string): Promise<string | null> {
     const { matrixService } = await import('../../matrix/MatrixService');
     return await matrixService.rooms.joinOrOpenChat(channelId);
+  }
+
+  /**
+   * Get all joined rooms with real unread counts
+   */
+  async getJoinedRooms(): Promise<ChatRoom[]> {
+    const rooms = this.client.getRooms();
+    
+    // Sort by last message timestamp (descending)
+    rooms.sort((a, b) => {
+        const lastEventA = a.timeline.length > 0 ? a.timeline[a.timeline.length - 1].getTs() : 0;
+        const lastEventB = b.timeline.length > 0 ? b.timeline[b.timeline.length - 1].getTs() : 0;
+        return lastEventB - lastEventA;
+    });
+
+    return rooms.map(room => ({
+        id: room.roomId,
+        name: room.name || 'Chat',
+        type: this.isDirectChat(room) ? ChatRoomType.DIRECT : ChatRoomType.CHANNEL,
+        avatarUrl: undefined, // Or get mxc
+        unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total) || 0,
+    }));
   }
 
   /**
@@ -638,6 +669,100 @@ export class MatrixChatAdapter implements ChatAdapterPort {
     };
   }
 
+
+  /**
+   * Subscribe to messages from ALL rooms (for global notifications)
+   */
+  subscribeToAllMessages(callback: (roomId: string, message: Message, senderName?: string) => void): () => void {
+    const handler = (event: any, room: any, toStartOfTimeline?: boolean) => {
+      // 0. CRITICAL: Ignore pagination events (history)
+      // This is the missing piece that prevents "Recent but read" messages from flooding
+      if (toStartOfTimeline === true) {
+        // console.log(`🔄 Global Listener: Ignoring pagination/history event for room ${roomId}`);
+        return;
+      }
+
+      // 1. Filter: Only standard messages
+      if (event.getType() !== EventType.RoomMessage) return;
+
+      // 2. Filter: Ignore my own messages
+      if (event.getSender() === this.client.getUserId()) return;
+      
+      // 3. Filter: Ignore incoming edits/redactions for now (keep it simple)
+      if (event.isRedacted()) return;
+
+      // 4. CRITICAL: Ignore local echoes (sending status or temp ID)
+      if (event.status === MessageStatus.SENDING || event.isSending() || event.getId().startsWith('~')) {
+          return;
+      }
+
+      // 5. CRITICAL: Dedup events (Matrix can emit multiple times usually during sync)
+      // Note: This closure captures 'handler', but we need state across firings.
+      // We'll rely on a tiny cache attached to the class instance or closure if possible.
+      // Since this is a method, we can't easily add state to the closure without it resetting on re-subscribe?
+      // Actually, 'subscribeToAllMessages' is called once by _layout.
+      // Let's add a static or class-level Set if needed, but a local Set in closure works for the lifespan of the subscription.
+      if (this.processedEventIds.has(event.getId())) {
+          return;
+      }
+      this.processedEventIds.add(event.getId());
+
+      // Cleanup old IDs periodically? For now, we just let it grow (app restart clears it)
+      // or we can use a small limit check.
+      if (this.processedEventIds.size > 1000) {
+          const it = this.processedEventIds.values();
+          const first = it.next().value;
+          if (first) {
+            this.processedEventIds.delete(first);
+          }
+      }
+
+      // 6. Grace Period Check: Ignore messages older than 60 seconds (prevents flood on restart)
+      const now = Date.now();
+      const msgTime = event.getTs();
+      const age = now - msgTime;
+      
+      // If message is older than 2 minutes (120000ms), ignore it for notifications
+      // This handles the "Initial Sync" dump where old messages are sent
+      if (age > 120000) {
+          console.log(`⏰ Global Listener: Ignoring old message in ${room.roomId} (Age: ${age}ms)`);
+          return;
+      }
+
+      // 7. Trigger callback
+      // Resolve Sender Name
+      const senderId = event.getSender();
+      const member = room.getMember(senderId);
+      const senderName = member ? member.name : senderId;
+
+      console.log(`🔔 Global Listener: New message in ${room.roomId} from ${senderName}`);
+      callback(room.roomId, this.toMessage(event), senderName);
+    };
+
+    // Listen to ALL timeline events
+    this.client.on(RoomEvent.Timeline, handler);
+    return () => this.client.off(RoomEvent.Timeline, handler);
+  }
+
+  /**
+   * Mark room as read (send receipt)
+   */
+  async markAsRead(roomId: string, eventId?: string): Promise<void> {
+    const room = this.client.getRoom(roomId);
+    if (!room) return;
+
+    // specific event or latest
+    const eventToMark = eventId 
+        ? room.findEventById(eventId) 
+        : room.timeline[room.timeline.length - 1];
+
+    if (eventToMark) {
+        // Send ephemeral read receipt
+        await this.client.sendReadReceipt(eventToMark);
+        console.log(`👀 Marked ${roomId} as read up to ${eventToMark.getId()}`);
+    }
+  }
+
   /**
    * Pure translation from Matrix Event to Message entity
    */
@@ -731,3 +856,4 @@ export class MatrixChatAdapter implements ChatAdapterPort {
     }
   }
 }
+

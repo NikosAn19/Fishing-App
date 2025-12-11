@@ -6,6 +6,7 @@ import { DirectMessage } from '../../domain/entities/DirectMessage';
 import { MessageStatus } from '../../domain/enums/MessageStatus';
 import { ChatError } from '../../domain/errors/ChatError';
 import { ChatErrorCode } from '../../domain/enums/ChatErrorCode';
+import { ChatRoomType } from '../../domain/enums/ChatRoomType';
 
 
 /**
@@ -119,17 +120,49 @@ export class ChatRepository {
   }
 
   /**
+   * Fetch all public rooms and sync with Matrix state
+   * Acts as the Single Source of Truth for Community Screen
+   */
+  async syncChannels(): Promise<ChatRoom[]> {
+    try {
+      // 1. Fetch API Channels (Structure & Metadata)
+      const { chatApi } = await import('../../matrix/api/client');
+      const apiChannels = await chatApi.getPublicChannels();
+
+      // 2. Fetch Joined Matrix Rooms (State & Unreads)
+      const joinedRooms = await this.adapterPort.getJoinedRooms?.() || [];
+      const joinedMap = new Map(joinedRooms.map(r => [r.id, r]));
+
+      // 3. Merge Data
+      const mergedRooms: ChatRoom[] = apiChannels.map(channel => {
+        const matrixRoom = joinedMap.get(channel.matrixRoomId);
+        
+        return {
+           id: channel.matrixRoomId,
+           name: channel.name, // Use name from DB as it might be cleaner options
+           type: ChatRoomType.CHANNEL,
+           avatarUrl: undefined,
+           unreadCount: matrixRoom ? (matrixRoom.unreadCount || 0) : 0, 
+           // If we have matrix room, we might want last message etc.
+        };
+      });
+
+      // 4. Update Store
+      this.statePort.setRooms(mergedRooms);
+      
+      return mergedRooms;
+    } catch (error) {
+      console.error('ChatRepository: Failed to sync channels', error);
+      throw new ChatError('Failed to sync channels', ChatErrorCode.NETWORK_ERROR, error);
+    }
+  }
+
+  /**
    * Fetch all public rooms (channels)
+   * @deprecated Use syncChannels instead for full badge support
    */
   async fetchPublicRooms(): Promise<ChatRoom[]> {
-    try {
-      const rooms = await this.adapterPort.fetchPublicRooms();
-      this.statePort.setRooms(rooms);
-      return rooms;
-    } catch (error) {
-      console.error('ChatRepository: Failed to fetch public rooms', error);
-      throw new ChatError('Failed to fetch public rooms', ChatErrorCode.NETWORK_ERROR, error);
-    }
+    return this.syncChannels();
   }
 
   /**
@@ -272,5 +305,25 @@ export class ChatRepository {
     
     // 2. Send message with all attachments
     await this.sendMessageWithAttachments(roomId, caption, attachments);
+  }
+
+  /**
+   * Subscribe to global messages (for notifications)
+   */
+  subscribeToAllMessages(callback: (roomId: string, msg: Message, senderName?: string) => void): () => void {
+    return this.adapterPort.subscribeToAllMessages(callback);
+  }
+
+  /**
+   * Mark room as read
+   */
+  async markAsRead(roomId: string): Promise<void> {
+    try {
+      await this.adapterPort.markAsRead(roomId);
+      // Optimistically clear unread count in store
+      this.statePort.clearUnread(roomId);
+    } catch (error) {
+       console.error(`ChatRepository: Failed to mark ${roomId} as read`, error);
+    }
   }
 }

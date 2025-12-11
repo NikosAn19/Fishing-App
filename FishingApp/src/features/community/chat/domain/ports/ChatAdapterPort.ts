@@ -25,6 +25,11 @@ export interface ChatAdapterPort {
   // User operations
   getCurrentUserId(): string | null;
   joinOrCreateRoom(channelId: string): Promise<string | null>;
+  getJoinedRooms?(): Promise<ChatRoom[]>;
+  
+  // Notification operations
+  subscribeToAllMessages(callback: (roomId: string, message: Message, senderName?: string) => void): () => void;
+  markAsRead(roomId: string, eventId?: string): Promise<void>;
   
   // Media operations
   /**

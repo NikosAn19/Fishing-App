@@ -12,6 +12,7 @@ interface ChatState {
   activeRoomId: string | null;
   isLoadingHistory: boolean;
   hasMore: Record<string, boolean>;
+  totalUnreadCount: number;
 
   // Actions
   setRooms: (rooms: ChatRoom[]) => void;
@@ -22,14 +23,20 @@ interface ChatState {
   setLoadingHistory: (loading: boolean) => void;
   setHasMore: (roomId: string, hasMore: boolean) => void;
   prependMessages: (roomId: string, messages: Message[]) => void;
+  
+  // Unread Actions
+  setUnreadCount: (roomId: string, count: number) => void;
+  incrementUnread: (roomId: string) => void;
+  clearUnread: (roomId: string) => void;
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+export const useChatStore = create<ChatState>((set, get) => ({
   rooms: {},
   messages: {},
   activeRoomId: null,
   isLoadingHistory: false,
   hasMore: {},
+  totalUnreadCount: 0,
 
   setRooms: (roomsList) =>
     set((state) => {
@@ -37,7 +44,11 @@ export const useChatStore = create<ChatState>((set) => ({
         acc[room.id] = room;
         return acc;
       }, {} as Record<string, ChatRoom>);
-      return { rooms: roomsMap };
+      
+      // Calculate total unread from all rooms
+      const totalUnread = roomsList.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
+      
+      return { rooms: roomsMap, totalUnreadCount: totalUnread };
     }),
 
   setMessages: (roomId, messages) =>
@@ -132,6 +143,63 @@ export const useChatStore = create<ChatState>((set) => ({
           ...state.messages,
           [roomId]: limited,
         },
+      };
+    }),
+
+  setUnreadCount: (roomId, count) =>
+    set((state) => {
+      const room = state.rooms[roomId];
+      if (!room) return state;
+
+      const oldRoomCount = room.unreadCount || 0;
+      const diff = count - oldRoomCount;
+
+      return {
+        rooms: {
+          ...state.rooms,
+          [roomId]: { ...room, unreadCount: count },
+        },
+        totalUnreadCount: Math.max(0, state.totalUnreadCount + diff),
+      };
+    }),
+
+  incrementUnread: (roomId) =>
+    set((state) => {
+      console.log(`[ChatStore] incrementUnread called for ${roomId}. Current Total: ${state.totalUnreadCount}`);
+      const room = state.rooms[roomId];
+      
+      // If room exists, update it specifically
+      if (room) {
+        console.log(`[ChatStore] Room found. New count: ${(room.unreadCount || 0) + 1}`);
+        return {
+          rooms: {
+            ...state.rooms,
+            [roomId]: { ...room, unreadCount: (room.unreadCount || 0) + 1 },
+          },
+          totalUnreadCount: state.totalUnreadCount + 1,
+        };
+      }
+      
+      console.log(`[ChatStore] Room NOT found. Incrementing Total to: ${state.totalUnreadCount + 1}`);
+      // If room not loaded yet, still increment total for badge visibility
+      return {
+        totalUnreadCount: state.totalUnreadCount + 1,
+      };
+    }),
+
+  clearUnread: (roomId) =>
+    set((state) => {
+      const room = state.rooms[roomId];
+      if (!room) return state;
+
+      const oldRoomCount = room.unreadCount || 0;
+
+      return {
+        rooms: {
+          ...state.rooms,
+          [roomId]: { ...room, unreadCount: 0 },
+        },
+        totalUnreadCount: Math.max(0, state.totalUnreadCount - oldRoomCount),
       };
     }),
 }));

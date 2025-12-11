@@ -2,6 +2,7 @@ import { createClient, MatrixClient, ClientEvent, SyncState, Filter } from 'matr
 import { logger } from 'matrix-js-sdk/lib/logger';
 import { API_BASE, DEV_MACHINE_IP } from '../../../../../config/api';
 import { CHAT_FILTER_DEFINITION, MATRIX_CONSTANTS } from '../MatrixConfig';
+import { matrixSessionStore } from '../storage/MatrixSessionStore';
 
 export class MatrixAuthManager {
   private client: MatrixClient | null = null;
@@ -48,6 +49,7 @@ export class MatrixAuthManager {
   public getUserId(): string | null {
     return this.client ? this.client.getUserId() : null;
   }
+
   /**
    * Creates a filter to only fetch messages and essential state events.
    * This optimizes bandwidth and processing by ignoring irrelevant events.
@@ -72,6 +74,12 @@ export class MatrixAuthManager {
         deviceId: deviceId,
       });
 
+      // Load persisted sync token
+      const savedSyncToken = await matrixSessionStore.getSyncToken();
+      if (savedSyncToken) {
+        console.log('💾 MatrixAuthManager: Found persisted sync token');
+      }
+
       // Wait for sync to be PREPARED (type-safe with SyncState enum)
       const syncPromise = new Promise<void>((resolve, reject) => {
         this.client!.once(ClientEvent.Sync, (state: SyncState, prevState: SyncState | null) => {
@@ -87,13 +95,21 @@ export class MatrixAuthManager {
         });
       });
 
+      // Listen to Sync events to persist token
+      this.client.on(ClientEvent.Sync, (state: SyncState, prevState: SyncState | null, data?: any) => {
+          if (state === SyncState.Syncing && data?.nextBatch) {
+              matrixSessionStore.setSyncToken(data.nextBatch);
+          }
+      });
+
       // Create and apply filter for efficient syncing
       const filter = this.createFilter(userId);
 
       await this.client.startClient({ 
           initialSyncLimit: MATRIX_CONSTANTS.BATCH_SIZE, // Match filter limit
-          filter: filter 
-      });
+          filter: filter,
+          initialSyncToken: savedSyncToken || undefined // Use saved token if available
+      } as any);
       await syncPromise;  // Wait for PREPARED state
       
       console.log('✅ MatrixAuthManager: Session restored successfully');
@@ -129,12 +145,21 @@ export class MatrixAuthManager {
       console.log('✅ MatrixAuthManager: Login successful, obtained token');
 
       // 3. Re-create the main client with the access token
-      // This ensures the client is fully authenticated for all subsequent requests
       this.client = createClient({
         baseUrl: this.baseUrl,
         userId: userId,
         accessToken: loginResponse.access_token,
         deviceId: loginResponse.device_id,
+      });
+
+      // Clear any old sync token on fresh login
+      await matrixSessionStore.clearSyncToken();
+
+      // Listen to Sync events to persist token
+      this.client.on(ClientEvent.Sync, (state: SyncState, prevState: SyncState | null, data?: any) => {
+          if (state === SyncState.Syncing && data?.nextBatch) {
+              matrixSessionStore.setSyncToken(data.nextBatch);
+          }
       });
 
       // Create and apply filter for efficient syncing
@@ -156,11 +181,13 @@ export class MatrixAuthManager {
       return null;
     }
   }
-  public logout(): void {
+
+  public async logout(): Promise<void> {
     if (this.client) {
       this.client.stopClient();
       this.client = null;
     }
+    await matrixSessionStore.clearSyncToken();
   }
 
   /**

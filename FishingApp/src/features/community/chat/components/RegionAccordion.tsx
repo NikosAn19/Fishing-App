@@ -4,10 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../../theme/colors';
 import { PublicChannel } from '../matrix/api/client';
 import ChannelItem from './ChannelItem';
+// Extend PublicChannel locally to include UI-specific props or update the main type?
+// For now, let's extend the type in props to be safe.
+type ChannelWithUnread = PublicChannel & { unreadCount?: number };
 
 interface RegionAccordionProps {
   regionName: string;
-  channels: PublicChannel[];
+  channels: ChannelWithUnread[];
   onChannelPress: (channelId: string) => void;
 }
 
@@ -24,10 +27,20 @@ export default function RegionAccordion({ regionName, channels, onChannelPress }
     return parts.length > 1 ? parts[1] : fullName;
   };
 
+  // Calculate total unreads for the region
+  const regionTotalUnreads = channels.reduce((sum, ch) => sum + (ch.unreadCount || 0), 0);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={toggleExpand} style={styles.header}>
-        <Text style={styles.title}>{regionName}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.title}>{regionName}</Text>
+            {regionTotalUnreads > 0 && (
+                <View style={styles.badgeContainer}>
+                    <Text style={styles.badgeText}>{regionTotalUnreads}</Text>
+                </View>
+            )}
+        </View>
         <Ionicons 
           name={isExpanded ? "chevron-up" : "chevron-down"} 
           size={20} 
@@ -45,7 +58,7 @@ export default function RegionAccordion({ regionName, channels, onChannelPress }
                 name: getTechniqueName(channel.name),
                 region: regionName,
                 category: getTechniqueName(channel.name),
-                unreadCount: 0
+                unreadCount: channel.unreadCount || 0
               }}
               onPress={() => onChannelPress(channel.matrixRoomId)}
             />
@@ -75,6 +88,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 1,
     textTransform: 'uppercase', // Keep uppercase via style if desired, or remove
+  },
+  badgeContainer: {
+    backgroundColor: colors.accent,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   content: {
     paddingLeft: 0, // No indent needed if we want full width items
