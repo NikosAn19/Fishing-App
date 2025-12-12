@@ -111,7 +111,17 @@ export async function apiFetchJson<T>(
   }
 
   if (!response.ok) {
-    const message = data?.error || response.statusText || "Request failed";
+    let message = data?.message || response.statusText || "Request failed";
+    
+    // If message is still generic, and we have an error object, try to use it
+    if (data?.error) {
+        if (typeof data.error === 'string') {
+            message = data.error;
+        } else if (typeof data.error === 'object') {
+            message += ` (${JSON.stringify(data.error)})`;
+        }
+    }
+    
     throw new Error(message);
   }
 

@@ -6,6 +6,9 @@ import { colors } from "../../../../theme/colors";
 import { useAuthStore } from "../../../auth/stores/authStore";
 import { AppRepository } from "../../../../repositories";
 import { UserAction } from "../domain/enums/UserAction";
+import { useAlert } from "../../../../hooks/alerts/useAlert";
+import { AlertRegistry } from "../../../../generic/common/alerts/AlertRegistry";
+import { AlertMessage } from "../../../../generic/common/alerts/messages";
 
 interface UserActionModalProps {
   visible: boolean;
@@ -28,6 +31,8 @@ export default function UserActionModal({
   const accessToken = useAuthStore(state => state.accessToken);
   const [userEntity, setUserEntity] = React.useState<any>(null);
 
+  const { showAlert } = useAlert();
+
   React.useEffect(() => {
     const loadUser = async () => {
       if (!user) return;
@@ -49,16 +54,26 @@ export default function UserActionModal({
   
   const handleAddFriend = async () => {
       if (!userEntity) {
-          alert('User information not fully loaded yet.');
+          showAlert(AlertRegistry.info(AlertMessage.WAIT_FOR_INFO));
           return;
       }
       
       try {
-          await AppRepository.user.performUserAction(userEntity, UserAction.ADD_FRIEND);
-          alert('Friend request sent!');
-      } catch (e) {
-          console.error(e);
-          alert('Error sending request');
+          // Ensure we are sending a clean ID
+          const cleanUserEntity = { ...userEntity, id: userEntity.id.trim() };
+          await AppRepository.user.performUserAction(cleanUserEntity, UserAction.ADD_FRIEND);
+          showAlert(AlertRegistry.success(AlertMessage.FRIEND_REQUEST_SENT));
+      } catch (e: any) {
+          // Log only real errors to console
+          const isConflict = e.message?.includes('already');
+          if (!isConflict) {
+             console.error(e);
+          } else {
+             console.log(`[Info] ${e.message}`);
+          }
+
+          // Use Registry to map error to UI Alert
+          showAlert(AlertRegistry.get(e));
       }
       onClose();
   };

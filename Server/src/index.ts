@@ -31,6 +31,12 @@ import { seedChannels } from "./scripts/seedChannels";
 
 const app = express();
 
+// Global Debug Logger
+app.use((req, res, next) => {
+  console.log(`[GlobalDebug] Incoming Request: ${req.method} ${req.url}`);
+  next();
+});
+
 // Logging middleware (moved to top to log all requests including proxy)
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));

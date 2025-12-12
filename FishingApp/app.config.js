@@ -19,6 +19,9 @@ export default {
     userInterfaceStyle: "light",
     newArchEnabled: true,
     extra: {
+      eas: {
+        projectId: "e0cf731c-a310-4ece-a15a-62eafa6e6886",
+      },
       EXPO_PUBLIC_API_BASE:
         process.env.EXPO_PUBLIC_API_BASE || "http://192.168.2.2:3000",
       EXPO_PUBLIC_CDN_BASE:

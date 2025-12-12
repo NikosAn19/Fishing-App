@@ -19,6 +19,12 @@ router.get("/profile", requireAuth, getProfile);
 // @access  Private
 router.put("/profile", requireAuth, updateProfile);
 
+// @desc    Lookup user by Matrix ID
+// @route   GET /api/users/lookup
+// @access  Private
+import { lookupUser } from "../controllers/userController";
+router.get("/lookup", requireAuth, lookupUser);
+
 export default router;
 
 

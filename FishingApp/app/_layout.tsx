@@ -25,6 +25,8 @@ import { useAuthStore } from "../src/features/auth/stores/authStore";
 import { useLocationStore } from "../src/features/location/stores/locationStore";
 import { notificationManager } from "../src/features/notifications";
 import { useChatNotifications } from "../src/features/notifications/hooks/useChatNotifications";
+import { AlertProvider } from "../src/context/AlertContext";
+import { AlertModal } from "../src/generic/common/alerts/AlertModal";
 
 // Configure notifications to show even when app is foregrounded
 Notifications.setNotificationHandler({
@@ -199,22 +201,29 @@ export default function RootLayout() {
     );
   }
 
+
+
+// ... existing code ...
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar style="light" />
-      <>
-        <Stack screenOptions={{ headerShown: false }} />
-        {showBottomMenu && (
-          <BottomMenu
-            onHomePress={handleHomePress}
-            onMapPress={handleMapPress}
-            onFishPress={handleFishPress}
-            onChatPress={handleChatPress}
-            currentScreen={pathname}
-          />
-        )}
-      </>
-    </View>
+    <AlertProvider>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar style="light" />
+        <>
+          <Stack screenOptions={{ headerShown: false }} />
+          {showBottomMenu && (
+            <BottomMenu
+              onHomePress={handleHomePress}
+              onMapPress={handleMapPress}
+              onFishPress={handleFishPress}
+              onChatPress={handleChatPress}
+              currentScreen={pathname}
+            />
+          )}
+        </>
+        <AlertModal />
+      </View>
+    </AlertProvider>
   );
 }
 

@@ -19,6 +19,11 @@ function sanitizeUser(user: UserDoc) {
       email: Boolean(user.passwordHash),
       google: Boolean(user.googleId),
     },
+    // Expose Matrix public info for frontend mapping
+    matrix: user.matrix ? {
+      userId: user.matrix.userId,
+      isSynced: user.matrix.isSynced
+    } : undefined,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -134,6 +139,36 @@ export async function getProfile(
       success: true,
       user: sanitizeUser(user),
     });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function lookupUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { matrixId } = req.query;
+
+    if (!matrixId || typeof matrixId !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: "Matrix ID is required",
+        });
+    }
+
+    const user = await UserModel.findOne({ 'matrix.userId': matrixId });
+
+    if (!user) {
+        return res.status(404).json({
+            success: false,
+            error: "User not found",
+        });
+    }
+
+    return res.json(sanitizeUser(user));
   } catch (error) {
     return next(error);
   }

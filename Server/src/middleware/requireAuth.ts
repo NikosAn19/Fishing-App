@@ -25,9 +25,23 @@ export async function requireAuth(
     }
 
     const payload = await verifyAccessToken(token);
+    console.log(`[AuthMiddleware] Verifying user: ${payload.sub}`);
 
-    const user = await User.findById(payload.sub);
+    let user = null;
+    if (payload.sub && payload.sub.startsWith('@')) {
+        // Handle Matrix ID in token
+        user = await User.findOne({ 'matrix.userId': payload.sub });
+    } else {
+        // Handle standard Mongo ID
+        if (payload.sub && payload.sub.match(/^[0-9a-fA-F]{24}$/)) {
+            user = await User.findById(payload.sub);
+        } else {
+            console.error(`[AuthMiddleware] Invalid ID format in token: ${payload.sub}`);
+        }
+    }
+
     if (!user) {
+      console.warn(`[AuthMiddleware] User not found for ID: ${payload.sub}`);
       return res.status(401).json({
         success: false,
         error: "User not found",

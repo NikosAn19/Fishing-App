@@ -96,7 +96,17 @@ export class UserRepository {
         break;
 
       case UserAction.ADD_FRIEND:
-        // ... existing add friend logic ...
+        const payload = { targetUserId: user.id };
+        // If user.id is a Matrix ID (starts with @), we might need to resolve it or handle it. 
+        // But assumed UserEntity.id is the database ID for friend requests OR backend handles lookup.
+        // For now, assume user.id is valid for backend.
+        
+        console.log(`[Repository] Sending Friend Request to: ${user.id}`);
+        await apiFetchJson('/api/friends/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
         break;
     }
   }

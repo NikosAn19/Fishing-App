@@ -28,10 +28,18 @@ router.get('/', requireAuth, async (req: any, res) => {
   }
 });
 
+console.log(`[FriendRoutes] Module Loaded at ${new Date().toISOString()}`);
+
 // Send Friend Request (by User ID)
 router.post('/request', requireAuth, async (req: any, res) => {
-  const { targetUserId } = req.body;
+  console.log('[FriendRequest] Received Body:', JSON.stringify(req.body));
+  
+  // Defensive: Trim string
+  const rawTargetId = req.body.targetUserId;
+  const targetUserId = (typeof rawTargetId === 'string') ? rawTargetId.trim() : rawTargetId;
   const requesterId = req.user._id;
+
+  console.log(`[FriendRequest] Processing: '${targetUserId}' (Original: '${rawTargetId}')`);
 
   if (targetUserId === requesterId.toString()) {
     res.status(400).json({ message: 'Cannot add yourself' });
@@ -39,7 +47,24 @@ router.post('/request', requireAuth, async (req: any, res) => {
   }
 
   try {
-    const targetUser = await UserModel.findById(targetUserId);
+    let targetUser = null;
+    
+    // Check if input is a Matrix ID
+    if (targetUserId.startsWith('@')) {
+        console.log(`[FriendRequest] Looking up Matrix ID: ${targetUserId}`);
+        targetUser = await UserModel.findOne({ 'matrix.userId': targetUserId });
+    } else {
+        // Assume MongoDB ID
+        if (!targetUserId.match(/^[0-9a-fA-F]{24}$/)) {
+            console.error(`[FriendRequest] Invalid ID format: '${targetUserId}'`);
+            res.status(400).json({ message: 'Invalid User ID format' });
+            return;
+        }
+        targetUser = await UserModel.findById(targetUserId);
+    }
+
+    console.log('[FriendRequest] Target User Found:', targetUser ? targetUser._id : 'NO');
+
     const requester = await UserModel.findById(requesterId);
 
     if (!targetUser || !requester) {
@@ -47,10 +72,24 @@ router.post('/request', requireAuth, async (req: any, res) => {
       return;
     }
 
+    // Reverse Check: Did target already request us?
+    const reverseExisting = requester.friends.find((f: any) => f.user.toString() === targetUserId.toString());
+    
+    if (reverseExisting) {
+        if (reverseExisting.status === 'pending') {
+             res.status(409).json({ message: 'This user has already sent you a friend request. Please check your notifications to accept it.' });
+             return;
+        }
+        if (reverseExisting.status === 'accepted') {
+             res.status(409).json({ message: 'You are already friends!' });
+             return;
+        }
+    }
+
     // Check if already friends or pending
-    const existing = targetUser.friends.find(f => f.user.toString() === requesterId.toString());
+    const existing = targetUser.friends.find((f: any) => f.user.toString() === requesterId.toString());
     if (existing) {
-      res.status(400).json({ message: 'Request already sent or users are already friends' });
+      res.status(409).json({ message: 'Request already sent or users are already friends' });
       return;
     }
 
@@ -67,7 +106,13 @@ router.post('/request', requireAuth, async (req: any, res) => {
       await NotificationService.sendPushNotification(
         targetUser.pushToken,
         'New Friend Request',
-        `${requester.displayName || 'Someone'} wants to be your friend!`
+        `${requester.displayName || 'Someone'} wants to be your friend!`,
+        {
+           type: 'FRIEND_REQUEST',
+           requesterId: requester._id.toString(),
+           requesterName: requester.displayName || 'Someone',
+           avatarUrl: requester.avatarUrl 
+        }
       );
     }
 
@@ -128,6 +173,36 @@ router.post('/accept', requireAuth, async (req: any, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error accepting friend request', error });
   }
+});
+
+// Reject Friend Request
+router.post('/reject', requireAuth, async (req: any, res) => {
+    const { requesterId } = req.body;
+    const userId = req.user._id;
+  
+    try {
+      const user = await UserModel.findById(userId);
+  
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+  
+      // Find and remove the friend request
+      const initialLength = user.friends.length;
+      user.friends = user.friends.filter(f => f.user.toString() !== requesterId);
+      
+      if (user.friends.length === initialLength) {
+          res.status(404).json({ message: 'Friend request not found' });
+          return;
+      }
+
+      await user.save();
+  
+      res.json({ message: 'Friend request rejected' });
+    } catch (error) {
+      res.status(500).json({ message: 'Error rejecting friend request', error });
+    }
 });
 
 // Register Push Token

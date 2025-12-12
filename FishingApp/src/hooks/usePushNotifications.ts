@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as Device from 'expo-device';
-// import * as Notifications from 'expo-notifications';
+import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform, Alert } from 'react-native';
 import { API_BASE } from '../config/api';
@@ -29,7 +29,7 @@ export function usePushNotifications() {
     
     // NOTE: Push notifications are disabled in Expo Go for Android (SDK 53+)
     // Uncomment this code when using a Development Build
-    /*
+    
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
         name: 'default',
@@ -53,18 +53,17 @@ export function usePushNotifications() {
       
       try {
           // Check if running in Expo Go
-          if (Constants.appOwnership === 'expo') {
-            console.log('Running in Expo Go - Skipping Push Notification Token fetch');
-            return;
-          }
+          // if (Constants.appOwnership === 'expo') {
+          //   console.log('Running in Expo Go - Skipping Push Notification Token fetch for now (remove check if needed)');
+          //   // return; 
+          // }
 
           const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-          if (!projectId) {
-              console.warn('Project ID not found. Push notifications require a Project ID.');
-              console.warn('Please run "npx eas-cli init" to configure your project.');
-              // We can't get a token without a project ID
-              return;
-          }
+          // if (!projectId) {
+          //    // Fallback or just try to get token without project ID (sometimes works in dev)
+          // }
+          
+          // Just try to get it
           token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
           console.log('Expo Push Token:', token);
       } catch (e) {
@@ -73,8 +72,8 @@ export function usePushNotifications() {
     } else {
       console.log('Must use physical device for Push Notifications');
     }
-    */
-    console.log('Push Notifications disabled in Expo Go');
+    
+    // console.log('Push Notifications disabled in Expo Go');
     return token;
   }
 

@@ -6,6 +6,7 @@ import { colors } from "../../../theme/colors";
 import { BackButton } from "../../../generic/common/BackButton";
 import { useAuthStore } from "../../auth/stores/authStore";
 import { Friend } from "../../auth/types/authTypes";
+import { apiFetchJson, JSON_HEADERS } from "../../../utils/apiClient";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -21,51 +22,39 @@ export default function NotificationsScreen() {
     router.back();
   };
 
+
+
+
+
   const handleAccept = async (requesterId: string) => {
-      if (!accessToken) return;
       setLoading(true);
       try {
-          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/friends/accept`, {
+          await apiFetchJson('/api/friends/accept', {
               method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${accessToken}`
-              },
+              headers: JSON_HEADERS,
               body: JSON.stringify({ requesterId })
           });
-          
-          if (response.ok) {
-              await refreshUser();
-          } else {
-              console.error('Failed to accept request');
-          }
-      } catch (e) {
+          await refreshUser();
+      } catch (e: any) {
           console.error(e);
+          alert(e.message || 'Failed to accept request');
       } finally {
           setLoading(false);
       }
   };
 
   const handleDecline = async (requesterId: string) => {
-      if (!accessToken) return;
       setLoading(true);
       try {
-          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/friends/reject`, {
+          await apiFetchJson('/api/friends/reject', {
               method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${accessToken}`
-              },
+              headers: JSON_HEADERS,
               body: JSON.stringify({ requesterId })
           });
-          
-          if (response.ok) {
-              await refreshUser();
-          } else {
-              console.error('Failed to reject request');
-          }
-      } catch (e) {
+          await refreshUser();
+      } catch (e: any) {
           console.error(e);
+          alert(e.message || 'Failed to reject request');
       } finally {
           setLoading(false);
       }

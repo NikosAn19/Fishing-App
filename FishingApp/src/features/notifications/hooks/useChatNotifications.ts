@@ -40,32 +40,43 @@ export function useChatNotifications({ authStatus }: UseChatNotificationsProps) 
       if (!hasPermission) return;
 
       // 3. Subscribe to GLOBAL messages
-      try {
-        const chatRepo = AppRepository.chat; 
-        
-        unsubscribe = chatRepo.subscribeToAllMessages(async (roomId, message, senderName) => {
-          // Check if user is already looking at this room
-          const currentPath = pathnameRef.current;
-          const isInRoom = currentPath.includes(`/chat/${roomId}`);
+      const subscribeWithRetry = async (attempts = 0) => {
+        try {
+          // This getter throws if Matrix client is not ready yet
+          const chatRepo = AppRepository.chat; 
           
-          if (!isInRoom) {
-             console.log(`🔔 Showing notification for ${roomId} from ${senderName}`);
-             
-             // A. Show Notification via Manager
-             await notificationManager.show(NotificationType.CHAT_MESSAGE, { roomId, message, senderName });
+          unsubscribe = chatRepo.subscribeToAllMessages(async (roomId, message, senderName) => {
+            // Check if user is already looking at this room
+            const currentPath = pathnameRef.current;
+            const isInRoom = currentPath.includes(`/chat/${roomId}`);
+            
+            if (!isInRoom) {
+               console.log(`🔔 Showing notification for ${roomId} from ${senderName}`);
+               
+               // A. Show Notification via Manager
+               await notificationManager.show(NotificationType.CHAT_MESSAGE, { roomId, message, senderName });
 
-             // B. Increment Badge in Store
-             useChatStore.getState().incrementUnread(roomId);
+               // B. Increment Badge in Store
+               useChatStore.getState().incrementUnread(roomId);
+            } else {
+               console.log(`👀 User is in room ${roomId}, skipping notification`);
+            }
+          });
+          
+          console.log('✅ Subscribed to global chat messages');
+
+        } catch (error) {
+          // If client not ready, retry a few times
+          if (attempts < 10) {
+            console.log(`⏳ Matrix client not ready, retrying subscription in 1s (${attempts + 1}/10)...`);
+            setTimeout(() => subscribeWithRetry(attempts + 1), 1000);
           } else {
-             console.log(`👀 User is in room ${roomId}, skipping notification`);
+            console.warn('⚠️ Failed to subscribe to chat messages after multiple attempts (Client never initialized):', error);
           }
-        });
-        
-        console.log('✅ Subscribed to global chat messages');
+        }
+      };
 
-      } catch (error) {
-        console.log('⚠️ Failed to subscribe to chat messages (likely client not ready yet):', error);
-      }
+      subscribeWithRetry();
     };
 
     setupNotifications();
