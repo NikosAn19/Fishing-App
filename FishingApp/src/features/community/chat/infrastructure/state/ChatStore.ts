@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Message } from '../../domain/entities/Message';
 import { ChatRoom } from '../../domain/entities/ChatRoom';
+import { ChatRoomType } from '../../domain/enums/ChatRoomType';
 
 /**
  * Zustand store - implementation detail
@@ -28,6 +29,11 @@ interface ChatState {
   setUnreadCount: (roomId: string, count: number) => void;
   incrementUnread: (roomId: string) => void;
   clearUnread: (roomId: string) => void;
+  
+  // Room Management
+  removeRoom: (roomId: string) => void;
+  upsertRooms: (rooms: ChatRoom[]) => void;
+  setRoomsByType: (type: ChatRoomType, rooms: ChatRoom[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -201,5 +207,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         totalUnreadCount: Math.max(0, state.totalUnreadCount - oldRoomCount),
       };
+    }),
+    
+  removeRoom: (roomId) =>
+    set((state) => {
+        const { [roomId]: deleted, ...remainingRooms } = state.rooms;
+        const countToRemove = deleted?.unreadCount || 0;
+        
+        return {
+            rooms: remainingRooms,
+            totalUnreadCount: Math.max(0, state.totalUnreadCount - countToRemove),
+        };
+    }),
+
+  upsertRooms: (newRooms) =>
+    set((state) => {
+       const roomsMap = { ...state.rooms };
+       newRooms.forEach(room => {
+           roomsMap[room.id] = room;
+       });
+       
+       const totalUnread = Object.values(roomsMap).reduce((sum, r) => sum + (r.unreadCount || 0), 0);
+       
+       return { rooms: roomsMap, totalUnreadCount: totalUnread };
+    }),
+
+  setRoomsByType: (type, newRooms) =>
+    set((state) => {
+        // 1. Filter out existing rooms of this type from the map
+        const otherTypeRooms = Object.values(state.rooms).filter(r => r.type !== type);
+        
+        // 2. Create map from kept rooms + new rooms
+        const roomsMap: Record<string, ChatRoom> = {};
+        
+        otherTypeRooms.forEach(r => roomsMap[r.id] = r);
+        newRooms.forEach(r => roomsMap[r.id] = r);
+        
+        // 3. Recalculate Total
+        const totalUnread = Object.values(roomsMap).reduce((sum, r) => sum + (r.unreadCount || 0), 0);
+        
+        return { rooms: roomsMap, totalUnreadCount: totalUnread };
     }),
 }));

@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Alert } from "react-native";
 import { useRouter, Stack, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import { BackButton } from "../../../../generic/common/BackButton";
 import { DirectMessage } from "../domain/entities/DirectMessage";
 import { AppRepository } from "../../../../repositories";
+import { useAlertContext } from "../../../../context/AlertContext";
 
 export default function DirectMessagesScreen() {
   const router = useRouter();
@@ -32,6 +33,8 @@ export default function DirectMessagesScreen() {
     }, [])
   );
 
+  const { showAlert } = useAlertContext(); // Need to import this at top
+
   const handleBack = () => {
     router.back();
   };
@@ -40,10 +43,58 @@ export default function DirectMessagesScreen() {
     router.push(`/community/chat/${dm.id}`);
   };
 
+  const handleLongPress = (dm: DirectMessage) => {
+    Alert.alert(
+      "Delete Chat",
+      `Are you sure you want to delete the conversation with ${dm.user.name}?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              const success = await AppRepository.chat.deleteChat(dm.id);
+              if (success) {
+                // Refresh list
+                await fetchDMs();
+                showAlert({
+                    title: 'Success',
+                    message: 'Chat deleted successfully',
+                    type: 'success'
+                });
+              } else {
+                 showAlert({
+                    title: 'Error',
+                    message: 'Failed to delete chat',
+                    type: 'error'
+                });
+              }
+            } catch (error) {
+              console.error('Failed to delete chat', error);
+              showAlert({
+                 title: 'Error',
+                    message: 'An error occurred while deleting the chat',
+                    type: 'error'
+              });
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderItem = ({ item }: { item: DirectMessage }) => (
     <TouchableOpacity 
       style={styles.itemContainer} 
       onPress={() => handlePress(item)}
+      onLongPress={() => handleLongPress(item)}
       activeOpacity={0.9}
     >
       <View style={styles.leftContent}>
@@ -73,7 +124,15 @@ export default function DirectMessagesScreen() {
             {new Date(item.lastMessage.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
           </Text>
         )}
-        {item.unreadCount ? (
+        
+        {/* Invite Badge */}
+        {item.status === 'invited' && (
+             <View style={[styles.badge, { backgroundColor: colors.accent, marginRight: 4 }]}>
+                 <Text style={styles.badgeText}>INVITE</Text>
+             </View>
+        )}
+        
+        {item.unreadCount && item.status !== 'invited' ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
               {item.unreadCount > 99 ? "99+" : item.unreadCount}

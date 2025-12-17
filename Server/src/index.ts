@@ -27,6 +27,7 @@ import adventureRoutes from "./routes/adventures";
 import favoriteSpotsRoutes from "./routes/favoriteSpots";
 import chatRoutes from "./routes/chatRoutes";
 import friendRoutes from "./routes/friendRoutes";
+import storyRoutes from "./routes/storyRoutes";
 import { seedChannels } from "./scripts/seedChannels";
 
 const app = express();
@@ -219,6 +220,7 @@ app.use("/api/favorite-spots", favoriteSpotsRoutes);
 app.use("/api/favorite-spots", favoriteSpotsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/friends", friendRoutes);
+app.use("/api/stories", storyRoutes);
 
 // Root endpoint
 app.get("/", (req, res) => {

@@ -2,6 +2,8 @@ import express from 'express';
 import UserModel from '../models/User';
 import { requireAuth } from '../middleware/requireAuth';
 import { NotificationService } from '../services/NotificationService';
+import { NotificationType } from '../types/NotificationTypes';
+import { NotificationMessage } from '../types/NotificationMessages';
 
 const router = express.Router();
 
@@ -103,12 +105,14 @@ router.post('/request', requireAuth, async (req: any, res) => {
 
     // Send Push Notification
     if (targetUser.pushToken) {
+      const body = NotificationMessage.FRIEND_REQUEST_BODY.replace('{name}', requester.displayName || 'Someone');
+      
       await NotificationService.sendPushNotification(
         targetUser.pushToken,
-        'New Friend Request',
-        `${requester.displayName || 'Someone'} wants to be your friend!`,
+        NotificationMessage.FRIEND_REQUEST_TITLE,
+        body,
         {
-           type: 'FRIEND_REQUEST',
+           type: NotificationType.FRIEND_REQUEST,
            requesterId: requester._id.toString(),
            requesterName: requester.displayName || 'Someone',
            avatarUrl: requester.avatarUrl 

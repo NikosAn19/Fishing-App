@@ -1,5 +1,6 @@
 import { Message } from '../entities/Message';
 import { MessageStatus } from '../enums/MessageStatus';
+import { ChatRoomType } from '../enums/ChatRoomType';
 import { ChatRoom } from '../entities/ChatRoom';
 
 /**
@@ -25,6 +26,9 @@ export interface ChatStatePort {
   // Room
   setActiveRoom(roomId: string | null): void;
   setRooms(rooms: ChatRoom[]): void;
+  upsertRooms(rooms: ChatRoom[]): void;
+  removeRoom(roomId: string): void;
+  setRoomsByType(type: ChatRoomType, rooms: ChatRoom[]): void;
   
   // Unread
   setUnreadCount(roomId: string, count: number): void;

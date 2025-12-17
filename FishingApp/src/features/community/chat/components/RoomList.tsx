@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback } from "react";
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { colors } from "../../../../theme/colors";
 import { AppRepository } from "../../../../repositories";
 import { ChatRoom } from "../domain/entities/ChatRoom";
 import { ChatRoomType } from "../domain/enums/ChatRoomType";
+import { useChatStore } from "../infrastructure/state/ChatStore";
 
 interface RoomListProps {
   filter?: 'direct' | 'channel' | 'all';
@@ -12,50 +13,62 @@ interface RoomListProps {
 
 export default function RoomList({ filter = 'all' }: RoomListProps) {
   const router = useRouter();
-  const [rooms, setRooms] = useState<ChatRoom[]>([]);
-  const [loading, setLoading] = useState(true);
+  // CRITICAL: Ensure we use the Store as Single Source of Truth
+  const { rooms: roomsMap } = useChatStore();
+  const [loading, setLoading] = React.useState(false);
 
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        setLoading(true);
-        
-        // Use repository instead of matrixService
-        const allRooms = await AppRepository.chat.fetchPublicRooms();
-        
-        // Filter based on type
-        const filtered = filter === 'all' 
-          ? allRooms
-          : allRooms.filter(room => {
-              if (filter === 'direct') return room.type === ChatRoomType.DIRECT;
-              if (filter === 'channel') return room.type === ChatRoomType.CHANNEL;
-              return true;
-            });
-        
-        setRooms(filtered);
-      } catch (error) {
-        console.error('Failed to fetch rooms', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Convert map to array and sort
+  const rooms = React.useMemo(() => {
+     let allRooms = Object.values(roomsMap);
+     
+     if (filter === 'direct') {
+         allRooms = allRooms.filter(r => r.type === ChatRoomType.DIRECT);
+     } else if (filter === 'channel') {
+         allRooms = allRooms.filter(r => r.type === ChatRoomType.CHANNEL);
+     }
 
-    fetchRooms();
-    
-    // Subscribe to updates using repository
-    const unsubscribe = AppRepository.chat.subscribeToRoomUpdates((updatedRooms) => {
-      const filtered = filter === 'all'
-        ? updatedRooms
-        : updatedRooms.filter(room => {
-            if (filter === 'direct') return room.type === ChatRoomType.DIRECT;
-            if (filter === 'channel') return room.type === ChatRoomType.CHANNEL;
-            return true;
-          });
-      setRooms(filtered);
-    });
-    
-    return unsubscribe;
-  }, [filter]);
+     // Sort by last message / activity
+     return allRooms.sort((a, b) => {
+         const timeA = a.lastMessage?.timestamp || 0;
+         const timeB = b.lastMessage?.timestamp || 0;
+         // TODO: Add lastActive timestamp to Room entity for better sorting
+         return timeB - timeA;
+     });
+  }, [roomsMap, filter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const syncRooms = async () => {
+        try {
+          if (rooms.length === 0) setLoading(true);
+
+          // Parallel Sync (Safe due to setRoomsByType)
+          const promises = [];
+          if (filter === 'direct' || filter === 'all') {
+               promises.push(AppRepository.chat.syncDirectMessages());
+          }
+          if (filter === 'channel' || filter === 'all') {
+               promises.push(AppRepository.chat.syncChannels());
+          }
+          
+          await Promise.all(promises);
+
+        } catch (error) {
+          console.error('Failed to sync rooms', error);
+        } finally {
+          if (isActive) setLoading(false);
+        }
+      };
+
+      syncRooms();
+      
+      return () => {
+        isActive = false;
+      };
+    }, [filter]) 
+  );
 
   const handlePress = (roomId: string) => {
     router.push(`/community/chat/${encodeURIComponent(roomId)}`);
@@ -84,7 +97,7 @@ export default function RoomList({ filter = 'all' }: RoomListProps) {
           <View style={styles.textContainer}>
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.type === ChatRoomType.CHANNEL ? 'Channel' : 'Direct Message'}
+              {item.lastMessage?.text || (item.type === ChatRoomType.CHANNEL ? 'Channel' : 'Direct Message')}
             </Text>
           </View>
         </View>
@@ -102,11 +115,11 @@ export default function RoomList({ filter = 'all' }: RoomListProps) {
     );
   };
 
-  if (loading) {
-    return <ActivityIndicator size="small" color={colors.accent} />;
+  if (loading && rooms.length === 0) {
+    return <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 20 }} />;
   }
 
-  if (rooms.length === 0) {
+  if (rooms.length === 0 && !loading) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No chats found.</Text>

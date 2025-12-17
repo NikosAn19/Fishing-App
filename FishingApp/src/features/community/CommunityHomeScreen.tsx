@@ -1,10 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../theme/colors";
 import StoriesRow from "./stories/components/StoriesRow";
-import { MOCK_STORIES } from "./stories/data/mockData";
 import RoomList from "./chat/components/RoomList";
 import { AppRepository } from "../../repositories";
 import RegionAccordion from "./chat/components/RegionAccordion";
@@ -34,10 +33,6 @@ export default function CommunityHomeScreen() {
 
   const handleChannelPress = (roomId: string) => {
     router.push(`/community/chat/${encodeURIComponent(roomId)}`);
-  };
-
-  const handleStoryPress = (userId: string) => {
-    router.push(`/community/stories/${userId}`);
   };
 
   const handleDirectMessagesPress = () => {
@@ -85,7 +80,7 @@ export default function CommunityHomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={{ paddingTop: insets.top, backgroundColor: colors.primaryBg, zIndex: 10 }}>
-        <StoriesRow stories={MOCK_STORIES} onStoryPress={handleStoryPress} />
+        <StoriesRow />
       </View>
 
       <ScrollView 

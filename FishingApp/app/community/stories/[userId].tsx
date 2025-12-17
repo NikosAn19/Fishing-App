@@ -1,3 +1,2 @@
-import StoryScreen from "../../../src/features/community/stories/screens/StoryScreen";
-
-export default StoryScreen;
+import StoryViewerScreen from '../../../src/features/community/stories/screens/StoryViewerScreen';
+export default StoryViewerScreen;

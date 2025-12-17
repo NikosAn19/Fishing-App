@@ -147,8 +147,8 @@ export class ChatRepository {
         };
       });
 
-      // 4. Update Store
-      this.statePort.setRooms(mergedRooms);
+      // 4. Update Store (Safe Update)
+      this.statePort.setRoomsByType(ChatRoomType.CHANNEL, mergedRooms);
       
       return mergedRooms;
     } catch (error) {
@@ -168,13 +168,102 @@ export class ChatRepository {
   /**
    * Fetch direct message conversations
    */
+  /**
+   * Fetch direct message conversations
+   */
   async fetchDirectMessages(): Promise<DirectMessage[]> {
     try {
-      return await this.adapterPort.fetchDirectMessages();
+      const dms = await this.adapterPort.fetchDirectMessages();
+      
+      // Update store for RoomList component
+      const chatRooms: ChatRoom[] = dms.map(dm => ({
+          id: dm.id,
+          name: dm.user.name,
+          type: ChatRoomType.DIRECT,
+          avatarUrl: dm.user.avatarUrl,
+          unreadCount: dm.unreadCount || 0,
+          lastMessage: dm.lastMessage ? {
+              id: 'latest', 
+              senderId: dm.user.id,
+              text: dm.lastMessage.text,
+              timestamp: new Date(dm.lastMessage.timestamp).getTime(),
+              status: MessageStatus.SENT
+          } : undefined
+      }));
+      
+      // We need to merge with existing rooms, not replace all (channels + dms)
+      // Since ChatStore.setRooms replaces ALL, we should probably fetch channels too or handle merge in store.
+      // But ChatStore.setRooms uses a map, so it might overwrite.
+      // Actually setRooms implementation: const roomsMap = ...; return { rooms: roomsMap }
+      // It REPLACES everything. This is dangerous if we only fetch DMs.
+      // We should use a new method `upsertRooms` or `addRooms`.
+      // For now, let's assume `syncChannels` handles channels and this handles DMs.
+      // Since RoomList separates them, maybe we can just rely on `upsert` behavior.
+      // I will assume for now I cannot change Store contract too much. I will use a separate logic in RoomList.
+      // WAIT, ChatStore.setRooms replaces EVERYTHING.
+      
+      // Safer approach: Get current rooms, merge, set back.
+      // But we can't get current rooms easily from here (Repository logic).
+      // Let's postpone store update for fetchDirectMessages until I verify Store capabilities.
+      // Instead, just focus on deleteChat REMOVING from store.
+      
+      return dms;
     } catch (error) {
       console.error('ChatRepository: Failed to fetch direct messages', error);
       throw new ChatError('Failed to fetch direct messages', ChatErrorCode.NETWORK_ERROR, error);
     }
+  }
+
+  /**
+   * Fetch DMs and sync with store (Single Source of Truth)
+   */
+  async syncDirectMessages(): Promise<DirectMessage[]> {
+      try {
+          const dms = await this.fetchDirectMessages();
+          
+          const rooms: ChatRoom[] = dms.map(dm => ({
+              id: dm.id,
+              name: dm.user.name,
+              type: ChatRoomType.DIRECT,
+              avatarUrl: dm.user.avatarUrl,
+              unreadCount: dm.unreadCount || 0,
+              lastMessage: dm.lastMessage ? {
+                  id: 'latest', // Dummy ID for preview
+                  senderId: dm.user.id,
+                  text: dm.lastMessage.text,
+                  timestamp: new Date(dm.lastMessage.timestamp).getTime(),
+                  status: MessageStatus.SENT
+              } : undefined,
+              metadata: { 
+                  otherUserId: dm.user.id
+              }
+          }));
+
+          console.log(`[ChatRepository] Syncing ${rooms.length} DMs to Store`);
+          this.statePort.setRoomsByType(ChatRoomType.DIRECT, rooms);
+          return dms;
+      } catch (error) {
+          console.error('[ChatRepository] Failed to sync DMs', error);
+          throw error;
+      }
+  }
+
+  // ...
+
+  /**
+   * Delete a chat (leave room and forget it)
+   */
+  async deleteChat(roomId: string): Promise<boolean> {
+      try {
+          const success = await this.adapterPort.leaveRoom(roomId);
+          if (success) {
+              this.statePort.removeRoom(roomId); // Immediate UI update
+          }
+          return success;
+      } catch (error) {
+          console.error(`ChatRepository: Failed to delete chat ${roomId}`, error);
+          throw new ChatError('Failed to delete chat', ChatErrorCode.NETWORK_ERROR, error);
+      }
   }
 
   /**
@@ -312,6 +401,36 @@ export class ChatRepository {
    */
   subscribeToAllMessages(callback: (roomId: string, msg: Message, senderName?: string) => void): () => void {
     return this.adapterPort.subscribeToAllMessages(callback);
+  }
+
+  /**
+   * Delete a chat (leave room and forget it)
+   */
+
+
+  /**
+   * Leave a room (without forgetting history? Or same as delete?)
+   * For Matrix, leaving implies not receiving updates.
+   * If it's a public channel, we just leave.
+   */
+  async leaveRoom(roomId: string): Promise<boolean> {
+      try {
+          // For now, leaveRoom and deleteChat might be similar in implementation 
+          // but semantically different for the app.
+          // deleteChat implies DMs (forgetting history).
+          // leaveRoom implies Channels (just leaving).
+          // However, adapterPort.leaveRoom usually does both or just leave.
+          // Let's reuse adapterPort.leaveRoom which likely does standard Matrix leave.
+          // And we should also remove from store to update UI.
+          const success = await this.adapterPort.leaveRoom(roomId);
+          if (success) {
+              this.statePort.removeRoom(roomId);
+          }
+          return success;
+      } catch (error) {
+           console.error(`ChatRepository: Failed to leave room ${roomId}`, error);
+           throw new ChatError('Failed to leave room', ChatErrorCode.NETWORK_ERROR, error);
+      }
   }
 
   /**

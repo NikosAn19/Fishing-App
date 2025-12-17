@@ -1,5 +1,6 @@
-import { NotificationStrategy } from './NotificationStrategy';
+import { NotificationStrategy } from '../types/NotificationStrategy';
 import { NotificationContent, NotificationType } from '../types/NotificationTypes';
+import { NotificationMessage } from '../types/NotificationMessages';
 
 interface FriendRequestPayload {
   requesterId: string;
@@ -12,8 +13,8 @@ export class FriendRequestStrategy implements NotificationStrategy<FriendRequest
     const { requesterName } = payload;
     
     return {
-      title: 'New Friend Request',
-      body: `${requesterName} wants to be a friend!`,
+      title: NotificationMessage.FRIEND_REQUEST_TITLE,
+      body: NotificationMessage.FRIEND_REQUEST_BODY.replace('{name}', requesterName),
       data: { 
         type: NotificationType.FRIEND_REQUEST,
         ...payload 

@@ -20,7 +20,7 @@ import { AuthStatus } from "../src/features/auth/types/authTypes";
 import { useForecastCacheStore } from "../src/features/forecast/stores/forecastCacheStore";
 import { useFavoriteSpotsStore } from "../src/features/maps/stores/favoriteSpotsStore";
 import { colors } from "../src/theme/colors";
-import { usePushNotifications } from "../src/hooks/usePushNotifications";
+import { usePushNotifications } from "../src/features/notifications/hooks/usePushNotifications";
 import { useAuthStore } from "../src/features/auth/stores/authStore";
 import { useLocationStore } from "../src/features/location/stores/locationStore";
 import { notificationManager } from "../src/features/notifications";
@@ -172,11 +172,14 @@ export default function RootLayout() {
   const isChatRoom = pathname.startsWith("/community/chat/") || pathname.startsWith("/community/direct-messages");
 
   const isAuthenticated = status === AuthStatus.AUTHENTICATED;
+  const isStoryScreen = pathname.startsWith("/community/stories");
+
   const showBottomMenu =
     !isCameraScreen &&
     !isGuideScreen &&
     !isProfileScreen &&
     !isChatRoom &&
+    !isStoryScreen &&
     !showSplash &&
     isAuthenticated;
 

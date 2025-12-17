@@ -7,22 +7,76 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  Image // Added Image
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../../../theme/colors";
 import MessageBubble from "../components/MessageBubble";
 import ChatInput from "../components/ChatInput";
 import UserActionModal from "../components/UserActionModal";
+import ChatOptionsModal from "../components/ChatOptionsModal"; // New import
 import ImageViewerModal from "../components/ImageViewerModal";
 import { BackButton } from "../../../../generic/common/BackButton";
-
+import { useAlertContext } from "../../../../context/AlertContext";
 
 import { useIdentityStore } from "../../../auth/stores/IdentityStore";
 import { AppRepository } from "../../../../repositories";
 import { useChatStore } from "../infrastructure/state/ChatStore";
+import { ChatOption } from "../domain/enums/ChatOption";
+import { ChatRoomType } from "../domain/enums/ChatRoomType";
 
 const EMPTY_ARRAY: any[] = [];
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.primaryBg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    // justifyContent: "space-between", // Changed to allow left-aligned title with avatar
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: colors.primaryBg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    zIndex: 10,
+  },
+  backButton: {
+    marginTop: 8,
+  },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    marginTop: 8,
+    // marginLeft: 12 // Removed to improve centering balance
+  },
+  headerTitle: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 8,
+    flexShrink: 1, // Allow truncation but don't force expansion
+    // flex: 1, // Removed to allow centering
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  listContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+  },
+  flatList: {
+    flex: 1,
+  },
+});
 
 export default function ChatRoomScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
@@ -45,9 +99,19 @@ export default function ChatRoomScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
+  const [roomType, setRoomType] = useState<ChatRoomType | null>(null);
 
   const [roomName, setRoomName] = useState<string>("Chat");
+  const [roomAvatar, setRoomAvatar] = useState<string | undefined>(undefined);
+  const [otherUserId, setOtherUserId] = useState<string | undefined>(undefined);
   const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+
+  // Reactive Identity Logic
+  const targetIdentity = useIdentityStore(state => otherUserId ? state.identities[otherUserId] : null);
+  
+  // Final Display Values (Store > State > Fallback)
+  const displayTitle = targetIdentity?.displayName || roomName;
+  const displayAvatar = targetIdentity?.avatarUrl || roomAvatar;
 
   // 1. Initialize Chat Room
   useEffect(() => {
@@ -141,6 +205,16 @@ export default function ChatRoomScreen() {
         const roomDetails = await AppRepository.chat.getRoomDetails(roomId);
         if (roomDetails) {
           setRoomName(roomDetails.name);
+          setRoomAvatar(roomDetails.avatarUrl);
+          setRoomType(roomDetails.type); // Ensure type is set
+          
+          // If we have a partner ID, set it for reactivity and ensure profile is loaded
+          if (roomDetails.metadata?.otherUserId) {
+              const partnerId = roomDetails.metadata.otherUserId;
+              setOtherUserId(partnerId);
+              // Trigger backend fetch (idempotent due to store cache check)
+              AppRepository.user.getUserByMatrixId(partnerId).catch(console.warn);
+          }
         }
       };
       fetchRoomName();
@@ -219,6 +293,10 @@ export default function ChatRoomScreen() {
     return urls;
   }, [messages]);
 
+  // Options Modal
+  const [showOptions, setShowOptions] = useState(false);
+  const { showAlert } = useAlertContext();
+
   const handleImagePress = (imageUrl: string) => {
     const index = allImageUrls.indexOf(imageUrl);
     if (index !== -1) {
@@ -227,14 +305,137 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const handleDeleteChat = () => {
+      // 1. Confirm
+      Alert.alert(
+          "Delete Chat",
+          `Are you sure you want to delete this conversation?`,
+          [
+              {
+                  text: "Cancel",
+                  style: "cancel"
+              },
+              {
+                  text: "Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                      if (!roomId) return;
+                      try {
+                          setIsLoading(true); // Reuse main loading or create local
+                          const success = await AppRepository.chat.deleteChat(roomId);
+                          if (success) {
+                              showAlert({
+                                  title: 'Success',
+                                  message: 'Chat deleted successfully',
+                                  type: 'success'
+                              });
+                              router.back();
+                          } else {
+                              showAlert({
+                                  title: 'Error',
+                                  message: 'Failed to delete chat',
+                                  type: 'error'
+                              });
+                              setIsLoading(false);
+                          }
+                      } catch (error) {
+                           console.error('Failed to delete chat', error);
+                           showAlert({
+                               title: 'Error',
+                               message: 'An error occurred',
+                               type: 'error'
+                           });
+                           setIsLoading(false);
+                      }
+                  }
+              }
+          ]
+      );
+  };
+
+
+
+  const availableOptions = useMemo(() => {
+      if (!roomId) return [];
+      
+      const options: ChatOption[] = [];
+      
+      if (roomType === ChatRoomType.DIRECT) {
+          options.push(ChatOption.DELETE);
+      } else if (roomType === ChatRoomType.CHANNEL) { // Correct Enum Key
+          options.push(ChatOption.LEAVE);
+      }
+      return options;
+  }, [roomId, roomType]);
+
+  const handleLeaveChannel = () => {
+       Alert.alert(
+          "Leave Channel",
+          "Are you sure you want to leave this channel?",
+          [
+              { text: "Cancel", style: "cancel" },
+              { 
+                  text: "Leave", 
+                  style: "destructive",
+                  onPress: async () => {
+                      if (!roomId) return;
+                      try {
+                          setIsLoading(true);
+                          const success = await AppRepository.chat.leaveRoom(roomId);
+                          if (success) {
+                             router.back();
+                          }
+                          setIsLoading(false);
+                      } catch (err) {
+                          console.error('Failed to leave', err);
+                          setIsLoading(false);
+                      }
+                  }
+              }
+          ]
+       );
+  };
+
+  const handleOptionSelect = async (option: ChatOption) => {
+      switch (option) {
+          case ChatOption.DELETE:
+              handleDeleteChat();
+              break;
+          case ChatOption.LEAVE:
+              handleLeaveChannel();
+              break;
+          default:
+              console.log('Option not implemented:', option);
+      }
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <BackButton onPress={handleBack} style={styles.backButton} />
-        <Text style={styles.headerTitle}>{title}</Text>
-        <View style={{ width: 40 }} />
+        
+        {/* Header Avatar */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+            {displayAvatar ? (
+                <Image source={{ uri: displayAvatar }} style={styles.headerAvatar} />
+            ) : roomType === ChatRoomType.DIRECT ? (
+                <View style={[styles.headerAvatar, { backgroundColor: colors.tertiaryBg, alignItems: 'center', justifyContent: 'center' }]}>
+                     <Text style={{ color: colors.textSecondary, fontWeight: 'bold' }}>
+                        {displayTitle?.charAt(0).toUpperCase()}
+                     </Text>
+                </View>
+            ) : null}
+            <Text style={styles.headerTitle} numberOfLines={1}>{displayTitle}</Text>
+        </View>
+
+        <TouchableOpacity 
+            onPress={() => setShowOptions(true)}
+            style={{ padding: 8 }}
+        >
+             <Ionicons name="ellipsis-vertical" size={24} color={colors.white} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -340,6 +541,16 @@ export default function ChatRoomScreen() {
         onShowProfile={handleShowProfile}
       />
 
+
+
+
+      <ChatOptionsModal
+        visible={showOptions}
+        onClose={() => setShowOptions(false)}
+        onSelect={handleOptionSelect}
+        availableOptions={availableOptions}
+      />
+
       <ImageViewerModal
         visible={isViewerVisible}
         imageUrls={allImageUrls}
@@ -350,39 +561,4 @@ export default function ChatRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.primaryBg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: colors.primaryBg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    zIndex: 10,
-  },
-  backButton: {
-    marginTop: 8,
-  },
-  headerTitle: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 8,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  listContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-  },
-  flatList: {
-    flex: 1,
-  },
-});
+

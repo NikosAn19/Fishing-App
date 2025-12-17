@@ -129,7 +129,12 @@ export default function UserActionModal({
                   <Text style={styles.primaryButtonText}>Send Message</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.secondaryButton} onPress={onShowProfile}>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => {
+                  if (user) {
+                    onClose();
+                    router.push(`/community/user/${user.id}`);
+                  }
+                }}>
                   <Text style={styles.secondaryButtonText}>Show Profile</Text>
                 </TouchableOpacity>
                 

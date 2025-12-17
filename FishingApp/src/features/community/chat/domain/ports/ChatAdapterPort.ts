@@ -19,6 +19,9 @@ export interface ChatAdapterPort {
   fetchPublicRooms(): Promise<ChatRoom[]>;
   fetchDirectMessages(): Promise<DirectMessage[]>;
   getRoomDetails(roomId: string): Promise<ChatRoom | null>;
+  leaveRoom(roomId: string): Promise<boolean>;
+  
+  // Matrix specific
   initialize(): Promise<boolean>;
   subscribeToRoomUpdates(callback: (rooms: ChatRoom[]) => void): () => void;
   

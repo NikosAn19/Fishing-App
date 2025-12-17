@@ -11,4 +11,5 @@ export interface DirectMessage {
     timestamp: string;
   };
   unreadCount?: number;
+  status?: 'joined' | 'invited' | 'left';
 }

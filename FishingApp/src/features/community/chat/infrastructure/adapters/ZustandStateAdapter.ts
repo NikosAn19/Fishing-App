@@ -46,6 +46,18 @@ export class ZustandStateAdapter implements ChatStatePort {
     useChatStore.getState().setRooms(rooms);
   }
 
+  upsertRooms(rooms: ChatRoom[]): void {
+    useChatStore.getState().upsertRooms(rooms);
+  }
+
+  setRoomsByType(type: import('../../domain/enums/ChatRoomType').ChatRoomType, rooms: ChatRoom[]): void {
+    useChatStore.getState().setRoomsByType(type, rooms);
+  }
+
+  removeRoom(roomId: string): void {
+    useChatStore.getState().removeRoom(roomId);
+  }
+
   setUnreadCount(roomId: string, count: number): void {
     useChatStore.getState().setUnreadCount(roomId, count);
   }

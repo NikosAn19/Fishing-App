@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { NotificationStrategy } from './strategies/NotificationStrategy';
+import { NotificationStrategy } from './types/NotificationStrategy';
 import { NotificationType } from './types/NotificationTypes';
 
 class NotificationManager {

@@ -1,4 +1,4 @@
-import { MatrixClient, EventType, MsgType, RoomEvent, Room, NotificationCountType, Filter } from 'matrix-js-sdk';
+import { MatrixClient, EventType, MsgType, RoomEvent, Room, NotificationCountType, Filter, EventTimeline } from 'matrix-js-sdk';
 import { ChatAdapterPort } from '../../domain/ports/ChatAdapterPort';
 import { Message, MessageAttachment, ImageAttachment, VideoAttachment, AudioAttachment, FileAttachment } from '../../domain/entities/Message';
 import { ChatRoom } from '../../domain/entities/ChatRoom';
@@ -10,6 +10,7 @@ import { EventHandlerRegistry } from '../../application/services/EventHandlerReg
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CHAT_FILTER_DEFINITION, MATRIX_CONSTANTS } from '../../matrix/MatrixConfig';
+import { useIdentityStore } from '../../../../auth/stores/IdentityStore';
 
 /**
  * Matrix implementation of ChatAdapterPort
@@ -203,8 +204,28 @@ export class MatrixChatAdapter implements ChatAdapterPort {
 
   async fetchDirectMessages(): Promise<DirectMessage[]> {
     const rooms = this.client.getRooms();
-    const directRooms = rooms.filter(room => this.isDirectChat(room));
+    console.log(`🔍 fetchDirectMessages: Found ${rooms.length} total rooms`);
     
+    // Also include rooms we are invited to!
+    const directRooms = rooms.filter(room => {
+        // EXPLICIT FIX: Filter out rooms we have left/forgotten
+        // This ensures UI updates immediately even if m.direct sync is lagging
+        if (room.getMyMembership() === 'leave') return false;
+
+        const isDirect = this.isDirectChat(room);
+        console.log(`   - Room ${room.roomId} (${room.name}): isDirect=${isDirect}, myMembership=${room.getMyMembership()}`);
+        return isDirect;
+    });
+    
+    console.log(`✅ fetchDirectMessages: Returning ${directRooms.length} DM rooms`);
+
+    // Sort by last activity
+    directRooms.sort((a, b) => {
+        const lastEventA = a.timeline.length > 0 ? a.timeline[a.timeline.length - 1].getTs() : 0;
+        const lastEventB = b.timeline.length > 0 ? b.timeline[b.timeline.length - 1].getTs() : 0;
+        return lastEventB - lastEventA;
+    });
+
     return directRooms.map(room => this.toDirectMessage(room));
   }
 
@@ -212,12 +233,29 @@ export class MatrixChatAdapter implements ChatAdapterPort {
     const room = this.client.getRoom(roomId);
     if (!room) return null;
 
+    const isDirect = this.isDirectChat(room);
+    
+    let name = room.name || 'Chat';
+    let avatarUrl = undefined;
+    let otherUserId = undefined;
+
+    if (isDirect) {
+        // Use smart resolution for DMs
+        const metadata = this.resolveDirectChatMetadata(room);
+        name = metadata.displayName;
+        avatarUrl = metadata.avatarUrl;
+        otherUserId = metadata.userId;
+    }
+
     return {
       id: room.roomId,
-      name: room.name || 'Chat',
-      type: this.isDirectChat(room) ? ChatRoomType.DIRECT : ChatRoomType.CHANNEL,
-      avatarUrl: undefined,
+      name: name,
+      type: isDirect ? ChatRoomType.DIRECT : ChatRoomType.CHANNEL,
+      avatarUrl: avatarUrl,
       unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total) || 0,
+      metadata: {
+        otherUserId
+      }
     };
   }
 
@@ -247,6 +285,11 @@ export class MatrixChatAdapter implements ChatAdapterPort {
   async joinOrCreateRoom(channelId: string): Promise<string | null> {
     const { matrixService } = await import('../../matrix/MatrixService');
     return await matrixService.rooms.joinOrOpenChat(channelId);
+  }
+
+  async leaveRoom(roomId: string): Promise<boolean> {
+    const { matrixService } = await import('../../matrix/MatrixService');
+    return await matrixService.rooms.leaveRoom(roomId);
   }
 
   /**
@@ -639,33 +682,146 @@ export class MatrixChatAdapter implements ChatAdapterPort {
    * Check if a room is a direct chat
    */
   private isDirectChat(room: Room): boolean {
-    const dmTag = room.getAccountData('m.direct');
-    return dmTag !== undefined;
+    const client = this.client;
+    
+    // 1. CRITICAL: Check global account data for m.direct
+    // This is the source of truth for "Does the user consider this a DM?"
+    const directEvent = client.getAccountData('m.direct' as any);
+    const directContent = directEvent ? directEvent.getContent() : {};
+    
+    // Check if this room ID exists in any of the user lists in m.direct
+    const isDirectInAccountData = Object.values(directContent).some((roomIds: any) => 
+        Array.isArray(roomIds) && roomIds.includes(room.roomId)
+    );
+
+    if (isDirectInAccountData) {
+        return true;
+    }
+
+    // 2. Strong Heuristics for "Ghost" prevention
+    // If the room is NOT in m.direct, and we have Left it, it should NOT be considered a DM.
+    // This prevents deleted chats from reappearing as "unknown" DMs.
+    if (room.getMyMembership() === 'leave' || room.getMyMembership() === 'ban') {
+        return false;
+    }
+
+    // 3. Fallback Heuristics (only for rooms we are effectively joined/invited to)
+    const joinRule = room.getJoinRule();
+    if (joinRule === 'public') {
+        return false;
+    }
+
+    const members = room.getJoinedMembers();
+    // Allow for invites (1 joined member = me, plus pending invites)
+    if (members.length === 1 || members.length === 2) {
+         // Check total active members including invites
+         const stateMembers = room.getLiveTimeline().getState(EventTimeline.FORWARDS)?.members || {};
+         const activeMembers = Object.values(stateMembers).filter(m => 
+            m.membership === 'join' || m.membership === 'invite'
+         );
+         return activeMembers.length === 2;
+    }
+    
+    return members.length === 2;
+  }
+
+  /**
+   * Centralized Logic for resolving DM Metadata (Name, Avatar, ID)
+   * Single Source of Truth for List and Details
+   */
+  private resolveDirectChatMetadata(room: Room): { userId: string, displayName: string, avatarUrl: string | undefined } {
+    const me = this.client.getUserId();
+    let otherUserId: string | null = null;
+
+    // 1. Identify Partner ID (m.direct preferred)
+    const directEvent = this.client.getAccountData('m.direct' as any);
+    const directContent = directEvent ? directEvent.getContent() : {};
+    for (const [userId, roomIds] of Object.entries(directContent)) {
+        if (Array.isArray(roomIds) && roomIds.includes(room.roomId)) {
+            otherUserId = userId;
+            break;
+        }
+    }
+
+    // Fallback: Room Members
+    if (!otherUserId) {
+        const allMembers = room.getMembers();
+        const otherMember = allMembers.find(m => m.userId !== me && (m.membership === 'join' || m.membership === 'invite'));
+        if (otherMember) otherUserId = otherMember.userId;
+    }
+
+    // Fallback: Just Me (Note to self)
+    if (!otherUserId && room.getJoinedMemberCount() === 1) {
+        // otherUserId = me; // Optional: Handle self-chat
+    }
+
+    const targetId = otherUserId || 'unknown';
+
+    // 2. Resolve Profile (Priority: IdentityStore > Matrix Member > ID)
+    let displayName = targetId;
+    let avatarUrl: string | undefined = undefined;
+
+    // Check IdentityStore (Fastest + Verified from Channels)
+    const cachedIdentity = useIdentityStore.getState().getIdentity(targetId);
+    if (cachedIdentity) {
+        // console.log(`🧠 MatrixChatAdapter: Resolved ${targetId} from IdentityStore`);
+        displayName = cachedIdentity.displayName;
+        avatarUrl = cachedIdentity.avatarUrl;
+    } else {
+        // Check Matrix Room State
+        // console.log(`⚠️ MatrixChatAdapter: ${targetId} not in IdentityStore. Checking Room State...`);
+        const member = room.getMember(targetId);
+        if (member) {
+            displayName = (member.name || member.rawDisplayName) || targetId;
+            avatarUrl = member.getMxcAvatarUrl() || undefined;
+        } else if (targetId === 'unknown' && room.name && room.name !== 'Empty Room') {
+             // Absolute fallback if not a DM logic
+             displayName = room.name;
+        }
+    }
+
+    // Cleanup
+    if (displayName === 'Empty Room') displayName = targetId; // Better to show ID than "Empty Room"
+    if (displayName === me) displayName = 'Me';
+
+    return {
+        userId: targetId,
+        displayName,
+        avatarUrl
+    };
   }
 
   /**
    * Convert Matrix Room to DirectMessage entity
    */
   private toDirectMessage(room: Room): DirectMessage {
-    const members = room.getJoinedMembers();
-    const me = this.client.getUserId();
-    const otherMember = members.find(m => m.userId !== me);
-    
-    const lastEvent = room.timeline[room.timeline.length - 1];
+    const { userId, displayName, avatarUrl } = this.resolveDirectChatMetadata(room);
+
+    // Last msg logic
+    const lastEvent = room.timeline.length > 0 
+        ? room.timeline[room.timeline.length - 1] 
+        : null; 
+        
     const lastMessage = lastEvent ? {
       text: lastEvent.getContent()?.body || '',
       timestamp: new Date(lastEvent.getTs()).toISOString(),
     } : undefined;
     
+    const myMembership = room.getMyMembership();
+    let status: 'joined' | 'invited' | 'left' = 'joined';
+    if (myMembership === 'invite') status = 'invited';
+    if (myMembership === 'leave') status = 'left';
+
     return {
       id: room.roomId,
       user: {
-        id: otherMember?.userId || 'unknown',
-        name: otherMember?.name || 'Unknown User',
-        avatarUrl: otherMember?.getMxcAvatarUrl() || undefined,
+        id: userId,
+        name: displayName,
+        avatarUrl: avatarUrl,
       },
       lastMessage,
       unreadCount: room.getUnreadNotificationCount(NotificationCountType.Total) || 0,
+      status
     };
   }
 

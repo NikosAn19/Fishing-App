@@ -11,4 +11,8 @@ export interface ChatRoom {
   lastMessage?: Message;
   unreadCount: number;
   type: ChatRoomType;
+  metadata?: {
+    otherUserId?: string;
+    [key: string]: any;
+  };
 }

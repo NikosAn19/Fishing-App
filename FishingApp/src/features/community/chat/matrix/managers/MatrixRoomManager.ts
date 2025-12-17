@@ -1,4 +1,4 @@
-import { MatrixClient, Room, Visibility, Preset } from 'matrix-js-sdk';
+import { MatrixClient, Room, Visibility, Preset, EventTimeline } from 'matrix-js-sdk';
 
 export class MatrixRoomManager {
   private getClient: () => MatrixClient | null;
@@ -67,13 +67,47 @@ export class MatrixRoomManager {
     if (!client) return null;
 
     try {
-      console.log(`💬 Creating DM with ${userId}...`);
+      // 1. Check for existing DM (Deduplication)
+      const directEvent = client.getAccountData('m.direct' as any);
+      const directContent = directEvent ? directEvent.getContent() : {};
+      const existingRoomIds = directContent[userId] || [];
+
+      if (Array.isArray(existingRoomIds)) {
+          for (const roomId of existingRoomIds) {
+              const room = client.getRoom(roomId);
+              if (room) {
+                  const myMembership = room.getMyMembership();
+                  // Re-use if we are joined or invited (waiting to join)
+                  if (myMembership === 'join' || myMembership === 'invite') {
+                      console.log(`found existing DM with ${userId}: ${roomId}`);
+                      return roomId;
+                  }
+              }
+          }
+      }
+
+      console.log(`💬 Creating new DM with ${userId}...`);
       const response = await client.createRoom({
         preset: Preset.TrustedPrivateChat,
         invite: [userId],
         is_direct: true,
       });
       console.log(`✅ DM Created: ${response.room_id}`);
+
+      // CRITICAL FIX: Manually update m.direct account data immediately
+      // This ensures the next "Deduplication" check finds this room, preventing duplicates.
+      const currentDirectEvent = client.getAccountData('m.direct' as any);
+      const currentContent = currentDirectEvent ? currentDirectEvent.getContent() : {};
+      
+      const newContent = { ...currentContent };
+      const userRooms = newContent[userId] || [];
+      
+      if (!userRooms.includes(response.room_id)) {
+          newContent[userId] = [...userRooms, response.room_id];
+          await client.setAccountData('m.direct' as any, newContent);
+          console.log(`✅ Updated m.direct for ${userId}:`, newContent[userId]);
+      }
+
       return response.room_id;
     } catch (error) {
       console.error('❌ MatrixRoomManager: Failed to create DM', error);
@@ -81,6 +115,65 @@ export class MatrixRoomManager {
     }
   }
 
+
+  /**
+   * Leaves a room and forgets it (removes from list/sync).
+   */
+  public async leaveRoom(roomId: string): Promise<boolean> {
+    const client = this.getClient();
+    if (!client) return false;
+
+    try {
+        console.log(`🚪 MatrixRoomManager: Leaving room ${roomId}...`);
+        
+        // 1. Check if it's in m.direct before leaving, so we know if we need to clean it
+        // (Though we can just always try to clean it to be safe)
+        
+        await client.leave(roomId);
+        console.log(`✅ Left room. Forgetting...`);
+        
+        try {
+            await client.forget(roomId);
+        } catch (e) {
+            console.warn(`⚠️ Failed to forget room ${roomId} (might already be forgotten)`, e);
+        }
+        
+        // 2. Remove from m.direct (CRITICAL for DM Persistence Bug)
+        try {
+            const currentDirect = client.getAccountData('m.direct' as any);
+            const content = currentDirect ? currentDirect.getContent() : {};
+            let changed = false;
+            
+            const newContent = { ...content }; // Clone
+
+            for (const userId in newContent) {
+                const rooms = newContent[userId];
+                if (Array.isArray(rooms) && rooms.includes(roomId)) {
+                    newContent[userId] = rooms.filter((r: unknown) => r !== roomId);
+                    
+                    // Cleanup empty user entries
+                    if (newContent[userId].length === 0) {
+                        delete newContent[userId];
+                    }
+                    
+                    changed = true;
+                }
+            }
+            
+            if (changed) {
+                await client.setAccountData('m.direct' as any, newContent);
+                console.log(`✅ Removed from m.direct account data`);
+            }
+        } catch (e) {
+            console.warn('⚠️ Failed to clean m.direct map', e);
+        }
+
+        return true;
+    } catch (error) {
+        console.error(`❌ MatrixRoomManager: Failed to leave room ${roomId}`, error);
+        return false;
+    }
+  }
 
   /**
    * Joins or opens a chat based on the identifier format.
@@ -140,10 +233,17 @@ export class MatrixRoomManager {
    * This is a heuristic based on membership count or room type.
    */
   public isDirectChat(room: Room): boolean {
-    // Check if it's marked as a direct chat in account data (m.direct)
-    // For now, a simple heuristic: 2 members implies DM, >2 implies group/channel
-    // Better: Check m.room.member events or room state
-    
+    // 0. Use global account data (The Correct Way)
+    const client = this.getClient();
+    if (client) {
+        const directEvent = client.getAccountData('m.direct' as any);
+        const directContent = directEvent ? directEvent.getContent() : {};
+        const isDirectInAccountData = Object.values(directContent).some((roomIds: any) => 
+            Array.isArray(roomIds) && roomIds.includes(room.roomId)
+        );
+        if (isDirectInAccountData) return true;
+    }
+
     // 1. If it's public, it's definitely a channel
     const joinRule = room.getJoinRule();
     if (joinRule === 'public') {
@@ -152,6 +252,18 @@ export class MatrixRoomManager {
 
     // 2. Fallback to member count for private rooms
     const members = room.getJoinedMembers();
+    
+    // Allow for invites (1 joined member = me)
+    if (members.length === 1 || members.length === 2) {
+         // Check total active members including invites
+         // Safely access members from live timeline state
+         const stateMembers = room.getLiveTimeline().getState(EventTimeline.FORWARDS)?.members || {};
+         const activeMembers = Object.values(stateMembers).filter(m => 
+            m.membership === 'join' || m.membership === 'invite'
+         );
+         return activeMembers.length === 2;
+    }
+    
     return members.length === 2;
   }
 }

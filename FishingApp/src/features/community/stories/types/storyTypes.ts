@@ -1,14 +1,26 @@
 export interface Story {
-  id: string;
-  imageUrl: string;
-  timestamp: string;
-  viewed: boolean;
-  duration?: number; // Duration in seconds, default to 5
+  _id: string; // MongoDB ID
+  user: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  duration?: number;
+  createdAt: string;
+  expiresAt: string;
+  views: Array<{ user: string; viewedAt: string }>;
 }
 
 export interface UserStory {
   userId: string;
   username: string;
   userImage: string;
+  latestStoryAt: string;
+  isMe: boolean;
+  allViewed: boolean;
   stories: Story[];
+}
+
+export interface CreateStoryPayload {
+    mediaUrl: string;
+    mediaType: 'image' | 'video';
+    duration?: number;
 }

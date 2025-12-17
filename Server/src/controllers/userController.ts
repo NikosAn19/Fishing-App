@@ -144,6 +144,48 @@ export async function getProfile(
   }
 }
 
+export async function getUserById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID exists
+    if (!id) {
+        return res.status(400).json({
+            success: false,
+            error: "User ID is required",
+        });
+    }
+
+    // Validate ID format (basic check)
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+        return res.status(400).json({
+            success: false,
+            error: "Invalid User ID format",
+        });
+    }
+
+    const user = await UserModel.findById(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function lookupUser(
   req: Request,
   res: Response,
