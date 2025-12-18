@@ -1,5 +1,5 @@
 import User from "../models/User";
-import { MatrixUserService } from "../services/matrix/MatrixUserService";
+import { MatrixUserService } from "../modules/chat/services/matrix/MatrixUserService";
 import { hashPassword } from "../utils/password";
 import crypto from "crypto";
 

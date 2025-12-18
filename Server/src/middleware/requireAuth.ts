@@ -1,6 +1,14 @@
 import { Request, Response, NextFunction } from "express";
-import User from "../models/User";
+import User, { UserDoc } from "../models/User";
 import { verifyAccessToken } from "../utils/authTokens";
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: UserDoc;
+    }
+  }
+}
 
 export async function requireAuth(
   req: Request,

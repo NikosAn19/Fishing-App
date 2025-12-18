@@ -12,22 +12,21 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 dotenv.config();
 
 import { connectDB } from "./utils/database";
-import { errorHandler } from "./middleware/errorHandler";
+import { globalErrorHandler } from "./middleware/error/globalErrorHandler";
 import { notFound } from "./middleware/notFound";
 
 // Import routes
-import authRoutes from "./routes/auth";
-import userRoutes from "./routes/users";
-import catchRoutes from "./routes/catches";
+import authRoutes from "./modules/auth/routes/auth.routes";
+import userRoutes from "./modules/users/routes/user.routes";
+import catchRoutes from "./modules/catches/routes/catch.routes";
 import spotRoutes from "./routes/spots";
-import weatherRoutes from "./routes/weather";
-import forecastRoutes from "./routes/forecast";
-import uploadsRoutes from "./routes/uploads";
-import adventureRoutes from "./routes/adventures";
-import favoriteSpotsRoutes from "./routes/favoriteSpots";
-import chatRoutes from "./routes/chatRoutes";
-import friendRoutes from "./routes/friendRoutes";
-import storyRoutes from "./routes/storyRoutes";
+import forecastRoutes from "./modules/weather/routes/weather.routes";
+import uploadsRoutes from "./modules/uploads/routes/upload.routes";
+import adventureRoutes from "./modules/adventures/routes/adventure.routes";
+import favoriteSpotsRoutes from "./modules/favorite-spots/routes/favoriteSpot.routes";
+import chatRoutes from "./modules/chat/routes/chat.routes";
+import friendRoutes from "./modules/friends/routes/friend.routes";
+import storyRoutes from "./modules/stories/routes/story.routes";
 import { seedChannels } from "./scripts/seedChannels";
 
 const app = express();
@@ -212,11 +211,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/catches", catchRoutes);
 app.use("/api/spots", spotRoutes);
-app.use("/api/weather", weatherRoutes);
+// app.use("/api/weather", weatherRoutes); // Deprecated/Removed
 app.use("/api/forecast", forecastRoutes);
 app.use("/api/uploads", uploadsRoutes);
 app.use("/api/adventures", adventureRoutes);
-app.use("/api/favorite-spots", favoriteSpotsRoutes);
 app.use("/api/favorite-spots", favoriteSpotsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/friends", friendRoutes);
@@ -243,7 +241,7 @@ app.get("/", (req, res) => {
 
 // Error handling middleware
 app.use(notFound);
-app.use(errorHandler);
+app.use(globalErrorHandler);
 
 // Start server - try binding to specific interface
 const HOST = process.env.HOST || "0.0.0.0";

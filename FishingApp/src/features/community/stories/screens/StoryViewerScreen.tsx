@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Dimensions, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, Dimensions, StatusBar, Alert, SafeAreaView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,8 @@ import { AppRepository } from '../../../../repositories';
 import { UserAdapter } from '../../../auth/adapters/UserAdapter';
 import { UserAction } from '../../chat/domain/enums/UserAction';
 import { colors } from '../../../../theme/colors';
+import StoryReplyInput from '../components/StoryReplyInput';
+import { useAuthStore } from '../../../auth/stores/authStore';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -20,8 +22,11 @@ export default function StoryViewerScreen() {
   const { userId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   
-  const [userStory, setUserStory] = useState<UserStory | null>(null);
+  const [feed, setFeed] = useState<UserStory[]>([]);
+  const [currentUserIndex, setCurrentUserIndex] = useState(-1);
   const [currentIndex, setCurrentIndex] = useState(0);
+  
+  const userStory = currentUserIndex !== -1 ? feed[currentUserIndex] : null;
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -33,29 +38,33 @@ export default function StoryViewerScreen() {
   const DURATION = 5000; // 5 seconds per story
 
   useEffect(() => {
-    loadStories();
+    loadFeed();
     return () => stopTimer();
   }, [userId]);
 
-  const loadStories = async () => {
+  const currentUser = useAuthStore(state => state.user);
+
+  const loadFeed = async () => {
     try {
-      const feed = await storyRepository.getFeed();
-      const user = feed.find(u => u.userId === userId);
-      if (user) {
-        setUserStory(user);
-        // Find first unseen story
-        const firstUnseen = user.stories.findIndex(s => !isStorySeen(s));
-        if (firstUnseen !== -1) {
-            setCurrentIndex(firstUnseen);
-        } else {
-            setCurrentIndex(0);
-        }
+      const storyFeed = await storyRepository.getFeed();
+      setFeed(storyFeed);
+      
+      const userIdx = storyFeed.findIndex(u => u.userId === userId);
+      if (userIdx !== -1) {
+        setCurrentUserIndex(userIdx);
+        const user = storyFeed[userIdx];
+        
+        // Find first unseen story for this user
+        const firstUnseen = user.stories.findIndex(s => 
+          !s.views?.some(v => v.user === currentUser?.id)
+        );
+        setCurrentIndex(firstUnseen !== -1 ? firstUnseen : 0);
       } else {
         Alert.alert("Error", "Story not found");
         router.back();
       }
     } catch (error) {
-      console.error("Failed to load story", error);
+      console.error("Failed to load feed", error);
     }
   };
 
@@ -69,6 +78,7 @@ export default function StoryViewerScreen() {
       // Wait, let's just proceed linearly.
       return false; 
   };
+
 
   useEffect(() => {
     if (!userStory) return;
@@ -120,49 +130,67 @@ export default function StoryViewerScreen() {
 
   const handleNext = () => {
     if (!userStory) return;
+    
     if (currentIndex < userStory.stories.length - 1) {
+      // Next story of same user
       setCurrentIndex(prev => prev + 1);
       setProgress(0);
       PAUSE_TIME.current = 0;
     } else {
-      // End of stories
-      router.back();
+      // End of this user's stories, go to next user
+      if (currentUserIndex < feed.length - 1) {
+        const nextUserIdx = currentUserIndex + 1;
+        setCurrentUserIndex(nextUserIdx);
+        setCurrentIndex(0);
+        setProgress(0);
+        PAUSE_TIME.current = 0;
+      } else {
+        // End of entire feed
+        router.back();
+      }
     }
   };
 
   const handlePrev = () => {
     if (currentIndex > 0) {
+      // Previous story of same user
       setCurrentIndex(prev => prev - 1);
       setProgress(0);
       PAUSE_TIME.current = 0;
     } else {
-       // Restart first story or close? Usually restart.
-       setProgress(0);
-       PAUSE_TIME.current = 0;
-       startTimer();
+      // Previous user's stories
+      if (currentUserIndex > 0) {
+          const prevUserIdx = currentUserIndex - 1;
+          const prevUser = feed[prevUserIdx];
+          setCurrentUserIndex(prevUserIdx);
+          setCurrentIndex(prevUser.stories.length - 1);
+          setProgress(0);
+          PAUSE_TIME.current = 0;
+      } else {
+          // Restart first story
+          setProgress(0);
+          PAUSE_TIME.current = 0;
+          startTimer();
+      }
     }
   };
 
-  const handleReply = async () => {
-      if (!replyText.trim() || !userStory) return;
+  const handleReplyText = (text: string) => {
+      handleReply(text);
+  };
+
+  const handleReply = async (textOverride?: string) => {
+      const textToSend = textOverride || replyText;
+      if (!textToSend.trim() || !userStory) return;
 
       pauseTimer();
       try {
-          // 1. Resolve User
-          // We need a full UserEntity to use performUserAction.
-          // We only have minimal info in UserStory.
-          // Let's assume we can fetch user or construct a partial one.
           const fullUser = await userRepository.getUser(userStory.userId);
-          
-          // 2. Get/Create Room
           const roomId = await userRepository.performUserAction(fullUser, UserAction.CHAT);
-          
-          // 3. Send Message
           const currentStory = userStory.stories[currentIndex];
-          const text = `Replying to your story: ${replyText}`;
-          // Ideally attach thumbnail of story too
+          const fullMessageText = `Replying to your story: ${textToSend}`;
           
-          await AppRepository.chat.sendMessageWithAttachments(roomId, text, [{
+          await AppRepository.chat.sendMessageWithAttachments(roomId, fullMessageText, [{
               id: `story-reply-${Date.now()}`,
               type: 'image',
               url: currentStory.mediaUrl,
@@ -199,8 +227,8 @@ export default function StoryViewerScreen() {
         resizeMode="cover"
       />
 
-      {/* Touch Layers for Navigation */}
-      <View style={styles.touchLayer}>
+      {/* Touch Layers for Navigation - Placed behind the UI but above the media */}
+      <View style={styles.touchLayer} pointerEvents="box-none">
           <TouchableOpacity 
              style={styles.touchLeft} 
              onPress={handlePrev} 
@@ -215,65 +243,50 @@ export default function StoryViewerScreen() {
           />
       </View>
 
-      {/* UI Overlay */}
-      <View style={[styles.overlay, { paddingTop: insets.top }]}>
-          
-          {/* Progress Bars */}
-          <View style={styles.progressContainer}>
-             {userStory.stories.map((s, index) => (
-                 <View key={s._id} style={styles.progressBarBackground}>
-                     <View style={[
-                         styles.progressBarFill, 
-                         { 
-                             width: index < currentIndex ? '100%' : 
-                                    index === currentIndex ? `${progress * 100}%` : '0%' 
-                         }
-                     ]} />
-                 </View>
-             ))}
-          </View>
-
-          {/* Header */}
-          <View style={styles.header}>
-              <Image source={{ uri: userStory.userImage }} style={styles.avatar} />
-              <Text style={styles.username}>{userStory.username}</Text>
-              <Text style={styles.time}>{new Date(currentStory.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
-              
-              <View style={{ flex: 1 }} />
-              
-              <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
-                  <Ionicons name="close" size={28} color="white" />
-              </TouchableOpacity>
-          </View>
-      </View>
-
-      {/* Footer / Reply */}
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}
+      {/* UI Overlay Layer - Wraps everything to handle keyboard lifting */}
+      <KeyboardAvoidingView
+        behavior="padding"
+        style={styles.flex1}
+        pointerEvents="box-none"
+        keyboardVerticalOffset={0}
       >
-          <TextInput
-              style={styles.input}
-              placeholder="Send message"
-              placeholderTextColor="#ddd"
-              value={replyText}
-              onChangeText={setReplyText}
-              onFocus={() => { setKeyboardVisible(true); pauseTimer(); }}
-              onBlur={() => { setKeyboardVisible(false); resumeTimer(); }}
-              returnKeyType="send"
-              onSubmitEditing={handleReply}
-          />
-          {keyboardVisible || replyText ? (
-              <TouchableOpacity onPress={handleReply} style={styles.sendButton}>
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Send</Text>
-              </TouchableOpacity>
-          ) : (
-               <TouchableOpacity style={styles.likeButton}>
-                   <Ionicons name="heart-outline" size={28} color="white" />
-               </TouchableOpacity>
-          )}
-      </KeyboardAvoidingView>
+          {/* Top UI: Progress Bars and Header */}
+          <View style={[styles.topOverlay, { paddingTop: insets.top }]} pointerEvents="box-none">
+              <View style={styles.progressContainer}>
+                 {userStory.stories.map((s, index) => (
+                     <View key={s._id} style={styles.progressBarBackground}>
+                         <View style={[
+                             styles.progressBarFill, 
+                             { 
+                                 width: index < currentIndex ? '100%' : 
+                                        index === currentIndex ? `${progress * 100}%` : '0%' 
+                             }
+                         ]} />
+                     </View>
+                 ))}
+              </View>
 
+              <View style={styles.header}>
+                  <Image source={{ uri: userStory.userImage }} style={styles.avatar} />
+                  <Text style={styles.username}>{userStory.username}</Text>
+                  <Text style={styles.time}>{new Date(currentStory.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                  <View style={{ flex: 1 }} />
+                  <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+                      <Ionicons name="close" size={28} color="white" />
+                  </TouchableOpacity>
+              </View>
+          </View>
+
+          {/* Middle Spacer - Allows touches to pass through to the touchLayer below */}
+          <View style={{ flex: 1 }} pointerEvents="none" />
+
+          {/* Bottom UI: Reply Input */}
+          <StoryReplyInput
+            onSend={handleReplyText}
+            onFocus={() => { setKeyboardVisible(true); pauseTimer(); }}
+            onBlur={() => { setKeyboardVisible(false); resumeTimer(); }}
+          />
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -296,11 +309,13 @@ const styles = StyleSheet.create({
   touchRight: {
       flex: 2, // Larger area for next
   },
-  overlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
+  flex1: {
+      flex: 1,
+  },
+  safeArea: {
+      flex: 1,
+  },
+  topOverlay: {
       paddingHorizontal: 10,
   },
   progressContainer: {
@@ -340,27 +355,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
       padding: 5,
-  },
-  footer: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingTop: 10,
-  },
-  input: {
-      flex: 1,
-      height: 44,
-      borderRadius: 22,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.5)',
-      paddingHorizontal: 20,
-      color: 'white',
-      marginRight: 10,
-      backgroundColor: 'rgba(0,0,0,0.3)'
   },
   sendButton: {
       padding: 10,

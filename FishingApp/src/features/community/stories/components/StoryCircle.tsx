@@ -10,7 +10,7 @@ interface StoryCircleProps {
 }
 
 export default function StoryCircle({ userStory, onPress }: StoryCircleProps) {
-  const hasUnseen = userStory.stories.some((s) => !s.viewed);
+  const hasUnseen = !userStory.allViewed;
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>

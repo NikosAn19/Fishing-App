@@ -120,4 +120,4 @@ logs
 *.log
 
 # Uploads directory (if contains user uploads)
-uploads/
+Server/uploads/

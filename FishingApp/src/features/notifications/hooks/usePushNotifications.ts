@@ -77,7 +77,7 @@ export function usePushNotifications() {
       try {
         // 3. Use Standard API Client (Automatic Auth header)
         // Note: apiFetchJson handles the base URL logic
-        const response: any = await apiFetchJson('/api/friends/push-token', {
+        const response: any = await apiFetchJson('/api/users/push-token', {
           method: 'POST',
           headers: JSON_HEADERS,
           body: JSON.stringify({ token: expoPushToken }),

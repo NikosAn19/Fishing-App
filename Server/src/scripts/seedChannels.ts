@@ -1,5 +1,5 @@
-import ChatRoom from "../models/ChatRoom";
-import { MatrixRoomService } from "../services/matrix/MatrixRoomService";
+import ChatRoom from "../modules/chat/models/ChatRoom";
+import { MatrixRoomService } from "../modules/chat/services/matrix/MatrixRoomService";
 import { createAdminUser } from "./createAdminUser";
 
 const matrixRoomService = new MatrixRoomService();
